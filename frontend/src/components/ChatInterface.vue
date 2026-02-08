@@ -1,29 +1,29 @@
 <template>
-  <div class="chat-interface h-full flex flex-col relative">
+  <div class="chat-interface">
     
     <!-- Chat History Area -->
-    <div class="flex-1 overflow-y-auto px-4 py-6 scroll-smooth" ref="chatContainer">
-      <div class="max-w-4xl mx-auto flex flex-col gap-6">
+    <div class="chat-history" ref="chatContainer">
+      <div class="chat-content">
         
         <!-- Welcome State -->
-        <div v-if="history.length === 0 && !result && !loading" class="text-center py-20 animate-fadeIn">
-          <div class="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl mx-auto flex items-center justify-center mb-6 shadow-glow">
+        <div v-if="history.length === 0 && !result && !loading" class="welcome-state">
+          <div class="welcome-icon">
             <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="white" stroke-width="2">
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
             </svg>
           </div>
-          <h2 class="text-3xl font-bold mb-3 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">
+          <h2 class="welcome-title">
             How can I help you today?
           </h2>
-          <p class="text-secondary max-w-lg mx-auto mb-8">
+          <p class="welcome-subtitle">
             Select an agent and ask questions about your data. I can generate SQL, visualize results, and provide insights.
           </p>
           
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-2xl mx-auto">
+          <div class="suggestions-grid">
              <button 
               v-for="ex in examples" 
               :key="ex"
-              class="p-4 bg-card border border-color rounded-xl hover:border-accent hover:bg-subtle transition text-left text-sm"
+              class="suggestion-card"
               @click="question = ex"
             >
               "{{ ex }}"
@@ -32,130 +32,135 @@
         </div>
 
         <!-- Chat Items -->
-        <div v-for="item in history" :key="item.id" class="flex flex-col gap-4 animate-fadeIn">
-          <!-- User Message -->
-          <div class="flex justify-end">
-            <div class="bg-accent text-white px-5 py-3 rounded-2xl rounded-tr-sm max-w-[80%] shadow-md">
-              <p>{{ item.question }}</p>
+        <div class="messages-list">
+            <div v-for="item in history" :key="item.id" class="message-wrapper animate-slideIn">
+            
+            <!-- User Message -->
+            <div class="message user">
+                <div class="message-bubble user-bubble">
+                <p>{{ item.question }}</p>
+                </div>
             </div>
-          </div>
-          
-          <!-- AI Response -->
-          <div class="flex justify-start w-full">
-            <div class="flex gap-3 max-w-full w-full">
-              <div class="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex-shrink-0 flex items-center justify-center text-xs font-bold text-white shadow-glow">
-                AI
-              </div>
-              <div class="flex-1 flex flex-col gap-3 overflow-hidden">
-                <!-- Response Card -->
-                <div class="bg-card border border-color rounded-2xl rounded-tl-sm p-5 shadow-sm w-full">
-                   <!-- Meta Info -->
-                   <div class="flex items-center gap-2 mb-3 text-xs">
-                      <span class="bg-subtle text-secondary px-2 py-1 rounded border border-color uppercase tracking-wider font-semibold">
-                        {{ item.result.intent_type || 'Query' }}
-                      </span>
-                      <span v-if="item.result.database_used" class="bg-subtle text-accent px-2 py-1 rounded border border-color flex items-center gap-1">
-                         <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
-                         {{ item.result.database_used.name }}
-                      </span>
-                      <span class="text-secondary ml-auto">{{ formatTime(item.timestamp) }}</span>
-                   </div>
-
-                   <!-- SQL Block (Collapsible?) -->
-                   <div class="mb-4">
-                     <div class="flex justify-between items-center mb-2">
-                       <span class="text-xs font-semibold text-secondary uppercase">Generated SQL</span>
-                       <button class="text-xs text-accent hover:underline flex items-center gap-1" @click="copySQL(item.result.sql)">
-                          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                          Copy
-                       </button>
-                     </div>
-                     <div class="bg-dark rounded-lg p-3 overflow-x-auto border border-color">
-                       <pre class="text-sm font-mono text-green-400 whitespace-pre-wrap">{{ item.result.sql }}</pre>
-                     </div>
-                   </div>
-                   
-                   <!-- Explanation -->
-                   <p class="text-secondary text-sm leading-relaxed mb-4 border-l-2 border-accent pl-3">
-                     {{ item.result.explanation }}
-                   </p>
-
-                   <!-- Data/Chart Visualization Area - Render dynamically if needed, 
-                        but for history we might keep it simple or re-render chart. 
-                        Ideally charts should be components. For now simplified. -->
-                    <div v-if="item.result.data && item.result.data.rows" class="border-t border-color pt-4">
-                        <div class="flex items-center justify-between mb-2">
-                           <span class="font-semibold text-sm">Result Data</span>
-                           <span class="text-xs text-secondary">{{ item.result.data.row_count }} rows found</span>
+            
+            <!-- AI Response -->
+            <div class="message ai">
+                <div class="avatar ai-avatar">AI</div>
+                <div class="message-content">
+                    <div class="response-card">
+                        <!-- Meta Info -->
+                        <div class="response-meta">
+                            <span class="intent-badge">
+                                {{ item.result.intent_type || 'Query' }}
+                            </span>
+                            <span v-if="item.result.database_used" class="db-badge">
+                                <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+                                {{ item.result.database_used.name }}
+                            </span>
+                            <span class="timestamp">{{ formatTime(item.timestamp) }}</span>
                         </div>
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-sm text-left">
-                                <thead class="text-xs text-secondary uppercase bg-subtle">
-                                    <tr>
-                                        <th v-for="col in item.result.data.columns" :key="col" class="px-3 py-2 whitespace-nowrap">{{ col }}</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr v-for="(row, idx) in item.result.data.rows.slice(0, 5)" :key="idx" class="border-b border-color hover:bg-subtle">
-                                        <td v-for="(cell, cidx) in row" :key="cidx" class="px-3 py-2 whitespace-nowrap text-secondary">{{ formatCell(cell) }}</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                            <div v-if="item.result.data.rows.length > 5" class="text-center text-xs text-secondary mt-2 italic">
-                                Showing first 5 rows...
+
+                        <!-- SQL Block -->
+                        <div class="sql-block">
+                            <div class="sql-header">
+                                <span>Generated SQL</span>
+                                <button class="copy-btn" @click="copySQL(item.result.sql)">
+                                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                    Copy
+                                </button>
+                            </div>
+                            <div class="sql-code-container">
+                                <pre class="sql-code">{{ item.result.sql }}</pre>
                             </div>
                         </div>
+                        
+                        <!-- Explanation -->
+                        <div class="explanation">
+                            <p>{{ item.result.explanation }}</p>
+                        </div>
+
+                        <!-- Data Table -->
+                        <div v-if="item.result.data && item.result.data.rows" class="data-result">
+                            <div class="data-header">
+                                <span class="data-title">Result Data</span>
+                                <span class="data-count">{{ item.result.data.row_count }} rows found</span>
+                            </div>
+                            <div class="table-wrapper">
+                                <table class="result-table">
+                                    <thead>
+                                        <tr>
+                                            <th v-for="col in item.result.data.columns" :key="col">{{ col }}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="(row, idx) in item.result.data.rows.slice(0, 5)" :key="idx">
+                                            <td v-for="(cell, cidx) in row" :key="cidx">{{ formatCell(cell) }}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                                <div v-if="item.result.data.rows.length > 5" class="table-more">
+                                    Showing first 5 rows...
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Visualization Placeholder -->
+                         <div v-if="item.result.visualization" class="viz-result">
+                            <div class="data-header">
+                                <span class="data-title">Visualization</span>
+                            </div>
+                            <div class="chart-placeholder">
+                                Visualization available (Chart Integration Pending)
+                            </div>
+                         </div>
                     </div>
                 </div>
-              </div>
             </div>
-          </div>
-        </div>
+            </div>
 
-        <!-- Current Loading State -->
-        <div v-if="loading" class="flex justify-start w-full animate-fadeIn">
-             <div class="flex gap-3 max-w-full">
-              <div class="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-xs font-bold text-white shadow-glow">AI</div>
-              <div class="bg-card border border-color rounded-2xl rounded-tl-sm p-4 shadow-sm flex items-center gap-3">
-                 <div class="typing-indicator">
-                    <span></span><span></span><span></span>
-                 </div>
-                 <span class="text-sm text-secondary">Analyzing query and generating SQL...</span>
-              </div>
+            <!-- Current Loading State -->
+            <div v-if="loading" class="message ai animate-pulse">
+                <div class="avatar ai-avatar">AI</div>
+                    <div class="message-content">
+                        <div class="loading-bubble">
+                            <div class="typing-indicator">
+                                <span></span><span></span><span></span>
+                            </div>
+                            <span>Thinking...</span>
+                        </div>
+                </div>
             </div>
         </div>
-
       </div>
     </div>
 
     <!-- Input Area (Fixed Bottom) -->
-    <div class="p-4 border-t border-color bg-glass backdrop-blur-md z-10 w-full max-w-4xl mx-auto">
-      <form @submit.prevent="submitQuery" class="relative">
-        <!-- Agent Selector (Inline) -->
-        <div class="absolute -top-12 left-0 flex items-center gap-2" v-if="agents.length > 0">
-           <span class="text-xs text-secondary uppercase font-semibold bg-dark px-2 py-1 rounded border border-color">Using Agent:</span>
-            <div class="relative">
-                <select v-model="selectedAgentId" class="appearance-none bg-card border border-color text-sm text-primary rounded pl-3 pr-8 py-1 cursor-pointer hover:border-accent focus:outline-none focus:border-accent">
+    <div class="input-area">
+      <form @submit.prevent="submitQuery" class="input-form">
+        <!-- Agent Selector (Floating) -->
+        <div class="agent-floater" v-if="agents.length > 0">
+           <span class="agent-label">Using Agent:</span>
+            <div class="select-wrapper">
+                <select v-model="selectedAgentId" class="agent-select">
                     <option :value="null">Default System</option>
                     <option v-for="agent in agents" :key="agent.id" :value="agent.id">{{ agent.name }}</option>
                 </select>
-                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-secondary">
-                  <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                <div class="select-icon">
+                  <svg viewBox="0 0 20 20" fill="currentColor"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
                 </div>
             </div>
         </div>
 
-        <div class="relative">
+        <div class="input-wrapper">
           <input
             v-model="question"
             type="text"
-            class="w-full bg-input border border-color rounded-xl pl-5 pr-12 py-4 text-primary focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent shadow-lg text-base"
+            class="main-input"
             placeholder="Ask a question about your data..."
             :disabled="loading"
           />
           <button 
             type="submit" 
-            class="absolute right-2 top-2 bottom-2 aspect-square bg-accent hover:bg-accent-hover text-white rounded-lg flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            class="send-btn"
             :disabled="loading || !question.trim()"
           >
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
@@ -165,8 +170,8 @@
           </button>
         </div>
       </form>
-      <div class="text-center mt-2">
-         <p class="text-xs text-muted">AI Query Agent can make mistakes. Verify important results.</p>
+      <div class="disclaimer">
+         <p>AI Query Agent can make mistakes. Verify important results.</p>
       </div>
     </div>
   </div>
@@ -184,8 +189,8 @@ const props = defineProps({
 // State
 const question = ref('')
 const loading = ref(false)
-const history = ref([]) // Chat history array
-const result = ref(null) // Current result (redundant with history but useful for state)
+const history = ref([])
+const result = ref(null)
 const agents = ref([])
 const selectedAgentId = ref(null)
 const chatContainer = ref(null)
@@ -223,7 +228,7 @@ watch(history.value, () => {
 function scrollToBottom() {
   nextTick(() => {
     if (chatContainer.value) {
-      chatContainer.value.scrollTop = chatContainer.value.scrollHeight
+      chatContainer.value.scrollTop = chatContainer.value.scrollHeight + 100
     }
   })
 }
@@ -298,143 +303,522 @@ function formatTime(date) {
 </script>
 
 <style scoped>
-/* Utility classes mocking Tailwind */
-.flex { display: flex; }
-.flex-col { flex-direction: column; }
-.flex-1 { flex: 1 1 0%; }
-.h-full { height: 100%; }
-.w-full { width: 100%; }
-.max-w-4xl { max-width: 56rem; }
-.max-w-2xl { max-width: 42rem; }
-.mx-auto { margin-left: auto; margin-right: auto; }
-.relative { position: relative; }
-.absolute { position: absolute; }
-.fixed { position: fixed; }
-.top-2 { top: 0.5rem; }
-.right-2 { right: 0.5rem; }
-.bottom-2 { bottom: 0.5rem; }
-.-top-12 { top: -3rem; }
-.left-0 { left: 0; }
-.inset-y-0 { top: 0; bottom: 0; }
-.px-4 { padding-left: 1rem; padding-right: 1rem; }
-.py-6 { padding-top: 1.5rem; padding-bottom: 1.5rem; }
-.p-4 { padding: 1rem; }
-.p-5 { padding: 1.25rem; }
-.px-5 { padding-left: 1.25rem; padding-right: 1.25rem; }
-.py-3 { padding-top: 0.75rem; padding-bottom: 0.75rem; }
-.pt-4 { padding-top: 1rem; }
-.mt-2 { margin-top: 0.5rem; }
-.mb-2 { margin-bottom: 0.5rem; }
-.mb-3 { margin-bottom: 0.75rem; }
-.mb-4 { margin-bottom: 1rem; }
-.mb-6 { margin-bottom: 1.5rem; }
-.mb-8 { margin-bottom: 2rem; }
-.gap-2 { gap: 0.5rem; }
-.gap-3 { gap: 0.75rem; }
-.gap-4 { gap: 1rem; }
-.gap-6 { gap: 1.5rem; }
-.bg-card { background-color: var(--bg-card); }
-.bg-dark { background-color: var(--bg-dark); }
-.bg-subtle { background-color: rgba(255,255,255,0.03); }
-.bg-input { background-color: var(--bg-input); }
-.bg-glass { background-color: rgba(15, 17, 21, 0.8); }
-.backdrop-blur-md { backdrop-filter: blur(12px); }
-.bg-accent { background-color: var(--accent-primary); }
-.bg-accent-hover:hover { background-color: var(--accent-hover); }
-.text-white { color: white; }
-.text-primary { color: var(--text-primary); }
-.text-secondary { color: var(--text-secondary); }
-.text-accent { color: var(--accent-primary); }
-.text-muted { color: var(--text-muted); }
-.text-green-400 { color: #4ade80; }
-.font-bold { font-weight: 700; }
-.font-semibold { font-weight: 600; }
-.font-medium { font-weight: 500; }
-.font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
-.text-3xl { font-size: 1.875rem; line-height: 2.25rem; }
-.text-base { font-size: 1rem; line-height: 1.5rem; }
-.text-sm { font-size: 0.875rem; line-height: 1.25rem; }
-.text-xs { font-size: 0.75rem; line-height: 1rem; }
-.text-center { text-align: center; }
-.text-left { text-align: left; }
-.text-transparent { color: transparent; }
-.uppercase { text-transform: uppercase; }
-.capitalize { text-transform: capitalize; }
-.italic { font-style: italic; }
-.tracking-wider { letter-spacing: 0.05em; }
-.leading-relaxed { line-height: 1.625; }
-.border { border-width: 1px; }
-.border-t { border-top-width: 1px; }
-.border-b { border-bottom-width: 1px; }
-.border-l-2 { border-left-width: 2px; }
-.border-color { border-color: var(--border-color); }
-.rounded { border-radius: 0.25rem; }
-.rounded-lg { border-radius: 0.5rem; }
-.rounded-xl { border-radius: 0.75rem; }
-.rounded-2xl { border-radius: 1rem; }
-.rounded-full { border-radius: 9999px; }
-.rounded-tr-sm { border-top-right-radius: 0.125rem; }
-.rounded-tl-sm { border-top-left-radius: 0.125rem; }
-.shadow-sm { box-shadow: var(--shadow-sm); }
-.shadow-md { box-shadow: var(--shadow-md); }
-.shadow-lg { box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); }
-.shadow-glow { box-shadow: var(--shadow-glow); }
-.overflow-hidden { overflow: hidden; }
-.overflow-y-auto { overflow-y: auto; }
-.overflow-x-auto { overflow-x: auto; }
-.whitespace-nowrap { white-space: nowrap; }
-.whitespace-pre-wrap { white-space: pre-wrap; }
-.cursor-pointer { cursor: pointer; }
-.cursor-not-allowed { cursor: not-allowed; }
-.pointer-events-none { pointer-events: none; }
-.hover\:underline:hover { text-decoration: underline; }
-.hover\:bg-subtle:hover { background-color: rgba(255,255,255,0.05); }
-.hover\:border-accent:hover { border-color: var(--accent-primary); }
-.focus\:outline-none:focus { outline: 2px solid transparent; outline-offset: 2px; }
-.focus\:ring-2:focus { box-shadow: 0 0 0 2px var(--bg-dark), 0 0 0 4px var(--accent-primary); }
-.transition { transition-property: background-color, border-color, color, fill, stroke, opacity, box-shadow, transform; transition-duration: 200ms; }
-.transition-colors { transition-property: background-color, border-color, color, fill, stroke; transition-duration: 200ms; }
-.opacity-50 { opacity: 0.5; }
-.z-10 { z-index: 10; }
-.appearance-none { -webkit-appearance: none; appearance: none; }
-.grid { display: grid; }
-.grid-cols-1 { grid-template-cols: repeat(1, minmax(0, 1fr)); }
-.flex-shrink-0 { flex-shrink: 0; }
-.scroll-smooth { scroll-behavior: smooth; }
+/* Component-Level CSS for Premium Feel */
 
-/* Custom Gradients */
-.bg-gradient-to-r { background-image: linear-gradient(to right, var(--tw-gradient-stops)); }
-.bg-gradient-to-br { background-image: linear-gradient(to bottom right, var(--tw-gradient-stops)); }
-.from-blue-500 { --tw-gradient-from: #3b82f6; --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to, rgba(59, 130, 246, 0)); }
-.to-purple-600 { --tw-gradient-to: #9333ea; }
-.from-blue-400 { --tw-gradient-from: #60a5fa; --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to, rgba(96, 165, 250, 0)); }
-.to-purple-400 { --tw-gradient-to: #c084fc; }
-.from-purple-500 { --tw-gradient-from: #a855f7; --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to, rgba(168, 85, 247, 0)); }
-.to-indigo-600 { --tw-gradient-to: #4f46e5; }
-.bg-clip-text { -webkit-background-clip: text; background-clip: text; }
+.chat-interface {
+  height: 100%; /* Fill parent */
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  background-color: var(--bg-dark);
+}
 
-/* Aspect Ratio */
-.aspect-square { aspect-ratio: 1 / 1; }
+.chat-history {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+  scroll-behavior: smooth;
+  padding-bottom: 140px; /* Space for fixed input */
+}
+
+.chat-content {
+  max-width: 900px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+/* Welcome State */
+.welcome-state {
+  text-align: center;
+  padding: 80px 20px;
+  animation: fadeIn 0.8s ease-out;
+}
+
+.welcome-icon {
+  width: 64px;
+  height: 64px;
+  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+  border-radius: 20px;
+  margin: 0 auto 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 30px -10px rgba(59, 130, 246, 0.5);
+}
+
+.welcome-title {
+  font-size: 32px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  background: linear-gradient(to right, #60a5fa, #c084fc);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.welcome-subtitle {
+  font-size: 16px;
+  color: var(--text-secondary);
+  max-width: 500px;
+  margin: 0 auto 40px;
+  line-height: 1.6;
+}
+
+.suggestions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.suggestion-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 16px;
+  text-align: left;
+  font-size: 14px;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.suggestion-card:hover {
+  border-color: var(--accent-primary);
+  background: rgba(255, 255, 255, 0.03);
+  transform: translateY(-2px);
+}
+
+/* Messages */
+.messages-list {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.message-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.message {
+  display: flex;
+  width: 100%;
+}
+
+.message.user {
+  justify-content: flex-end;
+}
+
+.message.ai {
+  justify-content: flex-start;
+  gap: 12px;
+}
+
+.user-bubble {
+  background: var(--accent-primary);
+  color: white;
+  padding: 12px 20px;
+  border-radius: 20px;
+  border-top-right-radius: 4px;
+  max-width: 80%;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.ai-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+  box-shadow: 0 0 15px rgba(139, 92, 246, 0.3);
+}
+
+.message-content {
+  flex: 1;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.response-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  border-top-left-radius: 4px;
+  padding: 20px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  width: 100%;
+}
+
+.response-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  font-size: 12px;
+}
+
+.intent-badge {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  padding: 2px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.db-badge {
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  color: #60a5fa;
+  padding: 2px 8px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.timestamp {
+  margin-left: auto;
+  color: var(--text-muted);
+}
+
+/* SQL Block */
+.sql-block {
+  margin-bottom: 20px;
+  background: #0d1117; /* Very dark for code */
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.sql-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.sql-header span {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+}
+
+.copy-btn {
+  background: transparent;
+  border: none;
+  color: var(--accent-primary);
+  font-size: 11px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.copy-btn:hover {
+  text-decoration: underline;
+}
+
+.sql-code-container {
+  padding: 12px;
+  overflow-x: auto;
+}
+
+.sql-code {
+  font-family: 'Fira Code', 'Menlo', monospace;
+  font-size: 13px;
+  color: #4ade80; /* Bright Green */
+  white-space: pre-wrap;
+  margin: 0;
+}
+
+.explanation {
+  margin-bottom: 20px;
+  padding-left: 12px;
+  border-left: 3px solid var(--accent-primary);
+}
+
+.explanation p {
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* Data Table */
+.data-result {
+  border-top: 1px solid var(--border-color);
+  padding-top: 16px;
+}
+
+.data-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.data-title {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.data-count {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.table-wrapper {
+  overflow-x: auto;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+}
+
+.result-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  text-align: left;
+}
+
+.result-table th {
+  background: rgba(255, 255, 255, 0.03);
+  padding: 10px 16px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-color);
+  white-space: nowrap;
+}
+
+.result-table td {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.result-table tr:hover td {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.result-table tr:last-child td {
+  border-bottom: none;
+}
+
+.table-more {
+  padding: 8px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.01);
+  border-top: 1px solid var(--border-color);
+  font-style: italic;
+}
+
+/* Loading Bubble */
+.loading-bubble {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  border-top-left-radius: 4px;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: fit-content;
+}
+
+.loading-bubble span {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
 
 .typing-indicator span {
   display: inline-block;
-  width: 6px; 
+  width: 6px;
   height: 6px;
   background-color: var(--text-secondary);
   border-radius: 50%;
-  animation: typing 1.4s infinite ease-in-out both;
   margin: 0 2px;
+  animation: typing 1.4s infinite ease-in-out both;
 }
 
 .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
 .typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
 
-@keyframes typing {
-  0%, 80%, 100% { transform: scale(0); }
-  40% { transform: scale(1); }
+/* Input Area */
+.input-area {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 24px;
+  background: rgba(15, 17, 21, 0.85); /* Glass effect background */
+  backdrop-filter: blur(12px);
+  border-top: 1px solid var(--border-color);
+  z-index: 50;
 }
 
-@media (min-width: 768px) {
-  .md\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.input-form {
+  max-width: 900px;
+  margin: 0 auto;
+  position: relative;
+}
+
+.agent-floater {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-card);
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+}
+
+.agent-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  background: #0f1115;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.select-wrapper {
+  position: relative;
+}
+
+.agent-select {
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: 13px;
+  padding-right: 20px;
+  cursor: pointer;
+}
+
+.agent-select:focus {
+  outline: none;
+}
+
+.select-icon {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
+  color: var(--text-secondary);
+}
+
+.input-wrapper {
+  position: relative;
+}
+
+.main-input {
+  width: 100%;
+  background: #1c2128;
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 16px 60px 16px 20px; /* Right padding for button */
+  font-size: 16px;
+  color: var(--text-primary);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  transition: all 0.2s;
+}
+
+.main-input:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.2);
+}
+
+.send-btn {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 40px;
+  height: 40px;
+  background: var(--accent-primary);
+  border: none;
+  border-radius: 10px;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.send-btn:hover:not(:disabled) {
+  background: var(--accent-hover);
+  transform: translateY(-50%) scale(1.05);
+}
+
+.send-btn:disabled {
+  background: #30363d;
+  color: #8b949e;
+  cursor: not-allowed;
+}
+
+.disclaimer {
+  text-align: center;
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-slideIn {
+  animation: slideIn 0.4s ease-out forwards;
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .7; }
+}
+
+@keyframes typing {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(0.6); opacity: 0.6; }
 }
 </style>

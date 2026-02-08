@@ -179,7 +179,7 @@ body {
   display: flex;
   flex-direction: column;
   padding: 20px;
-  z-index: 50;
+  z-index: 100;
 }
 
 .logo-container {
@@ -367,9 +367,9 @@ body {
 /* Content Area */
 .content-wrapper {
   flex: 1;
-  overflow-y: auto;
+  overflow: hidden;
   position: relative;
-  /* Custom scrollbar for content */
+  /* Custom scrollbar handled by children */
 }
 
 /* Global Component Styles */
