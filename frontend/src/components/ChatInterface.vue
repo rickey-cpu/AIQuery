@@ -137,12 +137,14 @@
     <div class="input-area">
       <form @submit.prevent="submitQuery" class="input-form">
         <!-- Agent Selector (Floating) -->
-        <div class="agent-floater" v-if="agents.length > 0">
-           <span class="agent-label">Using Agent:</span>
+        <div class="agent-floater">
+           <span class="agent-label">Using Agent ({{ agents.length }}):</span>
             <div class="select-wrapper">
                 <select v-model="selectedAgentId" class="agent-select">
                     <option :value="null">Default System</option>
-                    <option v-for="agent in agents" :key="agent.id" :value="agent.id">{{ agent.name }}</option>
+                    <option v-for="agent in agents" :key="agent.id" :value="agent.id">
+                        {{ agent.name }}
+                    </option>
                 </select>
                 <div class="select-icon">
                   <svg viewBox="0 0 20 20" fill="currentColor"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
@@ -214,7 +216,13 @@ onMounted(async () => {
 async function fetchAgents() {
     try {
         const response = await api.get('/agents')
-        agents.value = response.data
+        console.log("Agents API Response:", response.data)
+        if (Array.isArray(response.data)) {
+            agents.value = response.data
+            console.log("Agents loaded:", agents.value.length)
+        } else {
+            console.error("Agents response is not an array:", response.data)
+        }
     } catch (e) {
         console.error("Failed to fetch agents", e)
     }
@@ -684,8 +692,9 @@ function formatTime(date) {
 
 .agent-floater {
   position: absolute;
-  top: -40px;
-  left: 0;
+  bottom: 100%; /* Position above the input-area */
+  left: 24px; /* Align with padding */
+  margin-bottom: 12px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -693,7 +702,8 @@ function formatTime(date) {
   padding: 6px 12px;
   border-radius: 8px;
   border: 1px solid var(--border-color);
-  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  z-index: 100;
 }
 
 .agent-label {
