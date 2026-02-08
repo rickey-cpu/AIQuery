@@ -25,6 +25,14 @@ async def lifespan(app: FastAPI):
     await init_database()
     init_vector_store()
     
+    # Initialize agent repository (PostgreSQL)
+    try:
+        from models import init_agent_repository
+        await init_agent_repository()
+        print("🤖 Agent Repository: PostgreSQL connected")
+    except Exception as e:
+        print(f"⚠️ Agent Repository: Not available ({e})")
+    
     print("✅ AI Query Agent ready!")
     print(f"📊 Database: {config.database.type}")
     print(f"🤖 LLM Provider: {config.llm.provider} ({config.llm.model})")
@@ -53,21 +61,31 @@ app.add_middleware(
 )
 
 # Mount static files for frontend
-app.mount("/static", StaticFiles(directory="frontend"), name="static")
+import os
+if os.path.exists("frontend/dist"):
+    app.mount("/static", StaticFiles(directory="frontend/dist"), name="static")
+else:
+    app.mount("/static", StaticFiles(directory="frontend"), name="static")
 
 # Import and include routers
 from api.routes import query, schema, history
+from api.routes import agents
 
 app.include_router(query.router, prefix="/api", tags=["Query"])
 app.include_router(schema.router, prefix="/api", tags=["Schema"])
 app.include_router(history.router, prefix="/api", tags=["History"])
+app.include_router(agents.router, prefix="/api", tags=["Agents"])
 
 
 @app.get("/")
 async def root():
     """Root endpoint - redirect to frontend"""
     from fastapi.responses import RedirectResponse
+    if os.path.exists("frontend/dist"):
+         return RedirectResponse(url="/static/index.html")
+    # In dev, redirect probably won't work perfectly without build, but serves as fallback
     return RedirectResponse(url="/static/index.html")
+
 
 
 @app.get("/health")

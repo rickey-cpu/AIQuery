@@ -13,6 +13,8 @@ class QueryRequest(BaseModel):
     """Request model for natural language query"""
     question: str = Field(..., description="Natural language question")
     execute: bool = Field(default=True, description="Whether to execute the SQL")
+    agent_id: Optional[str] = Field(default=None, description="Agent ID for multi-database queries")
+    database_id: Optional[str] = Field(default=None, description="Specific database to query (overrides auto-routing)")
 
 
 class QueryResponse(BaseModel):
@@ -24,6 +26,7 @@ class QueryResponse(BaseModel):
     data: Optional[dict] = None
     error: Optional[str] = None
     warnings: list[str] = []
+    database_used: Optional[dict] = None  # NEW: Info about which database was used
 
 
 # In-memory query history (for demo)
@@ -82,11 +85,38 @@ async def process_query(request: QueryRequest):
     """
     Process natural language query and return SQL + results
     
-    This is the main endpoint inspired by Uber FINCH
+    This is the main endpoint inspired by Uber FINCH.
+    Supports multi-database agents via agent_id parameter.
     """
     try:
-        supervisor = _get_supervisor()
-        result = await supervisor.process_query(request.question)
+        database_used = None
+        
+        # Check if using a multi-database agent
+        if request.agent_id:
+            from models import get_agent_repository
+            from agents import MultiDatabaseSupervisor
+            
+            repo = get_agent_repository()
+            if repo:
+                agent = await repo.get_by_id(request.agent_id)
+                if agent:
+                    supervisor = MultiDatabaseSupervisor(agent)
+                    result = await supervisor.process_query(
+                        question=request.question,
+                        database_id=request.database_id
+                    )
+                    
+                    # Extract database info from result
+                    if isinstance(result.data, dict) and "_database" in result.data:
+                        database_used = result.data.pop("_database", None)
+                else:
+                    raise HTTPException(status_code=404, detail=f"Agent not found: {request.agent_id}")
+            else:
+                raise HTTPException(status_code=503, detail="Agent repository not available")
+        else:
+            # Use default supervisor (backward compatible)
+            supervisor = _get_supervisor()
+            result = await supervisor.process_query(request.question)
         
         response = QueryResponse(
             success=result.success,
@@ -95,7 +125,8 @@ async def process_query(request: QueryRequest):
             explanation=result.explanation,
             data=result.data if isinstance(result.data, dict) else None,
             error=result.error,
-            warnings=result.warnings or []
+            warnings=result.warnings or [],
+            database_used=database_used
         )
         
         # Add to history
@@ -103,11 +134,14 @@ async def process_query(request: QueryRequest):
             "question": request.question,
             "sql": result.sql,
             "success": result.success,
+            "agent_id": request.agent_id,
             "timestamp": __import__("datetime").datetime.now().isoformat()
         })
         
         return response
         
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
