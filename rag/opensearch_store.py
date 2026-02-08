@@ -62,6 +62,26 @@ class OpenSearchStore:
         if not self.client.indices.exists(index=self.indices["semantic_definitions"]):
             self.client.indices.create(index=self.indices["semantic_definitions"], body=def_body)
 
+        # Schema for SQL examples (Few-shot)
+        examples_body = {
+            "settings": {
+                "index": {
+                    "number_of_shards": 1,
+                    "number_of_replicas": 0
+                }
+            },
+            "mappings": {
+                "properties": {
+                    "question": {"type": "text", "analyzer": "standard"},
+                    "sql": {"type": "text"},
+                    "description": {"type": "text"}
+                }
+            }
+        }
+
+        if not self.client.indices.exists(index="sql_examples"):
+            self.client.indices.create(index="sql_examples", body=examples_body)
+
     def add_definitions(self, definitions: List[Dict[str, Any]]):
         """Add definitions to OpenSearch"""
         if not definitions:
@@ -83,6 +103,26 @@ class OpenSearchStore:
         if body:
             self.client.bulk(body=body)
             self.client.indices.refresh(index=self.indices["semantic_definitions"])
+
+    def add_examples(self, examples: List[Dict[str, Any]]):
+        """Add SQL examples to OpenSearch (Few-shot)"""
+        if not examples:
+            return
+
+        body = ""
+        for ex in examples:
+            action = {"index": {"_index": "sql_examples"}}
+            body += str(action).replace("'", '"') + "\n"
+            data = {
+                "question": ex.get("question", ""),
+                "sql": ex.get("sql", ""),
+                "description": ex.get("description", "")
+            }
+            body += str(data).replace("'", '"') + "\n"
+            
+        if body:
+            self.client.bulk(body=body)
+            self.client.indices.refresh(index="sql_examples")
 
     def search_definitions(self, query: str, k: int = 3) -> List[Dict]:
         """Search for definitions using fuzzy text match (or vector if enabled)"""
@@ -107,10 +147,40 @@ class OpenSearchStore:
                 "question": source.get("text"),
                 "sql": source.get("name"),
                 "type": source.get("type"),
-                "score": hit["_score"]
+                "score": hit["_score"],
+                "obj": None # Will be enriched by Semantic Layer
             })
             
         return results
+
+    def search_similar(self, question: str, k: int = 3) -> List[Dict]:
+        """Search for similar SQL examples (Few-shot)"""
+        body = {
+            "size": k,
+            "query": {
+                "match": {
+                    "question": {
+                        "query": question,
+                        "fuzziness": "AUTO"
+                    }
+                }
+            }
+        }
+
+        try:
+            response = self.client.search(index="sql_examples", body=body)
+            results = []
+            for hit in response["hits"]["hits"]:
+                source = hit["_source"]
+                results.append({
+                    "question": source.get("question"),
+                    "sql": source.get("sql"),
+                    "score": hit["_score"]
+                })
+            return results
+        except Exception as e:
+            print(f"Error searching examples: {e}")
+            return []
 
     def count(self) -> int:
         """Count documents in definitions index"""

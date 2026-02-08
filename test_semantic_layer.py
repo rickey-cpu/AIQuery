@@ -1,6 +1,10 @@
-
 import asyncio
+from dotenv import load_dotenv
+from config import load_config_from_env
 from rag.semantic_layer import SemanticLayer
+
+load_dotenv()
+load_config_from_env()
 
 def test_semantic_layer():
     print("Initializing Semantic Layer...")

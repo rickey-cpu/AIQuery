@@ -123,6 +123,37 @@ Input should be a business term like 'revenue', 'customer', 'order date', etc.""
         search_lower = search_term.lower().strip()
         results = []
         
+        # Semantic Search using OpenSearch (via Semantic Layer)
+        if self._semantic_layer and hasattr(self._semantic_layer, 'search_definitions'):
+            try:
+                semantic_results = self._semantic_layer.search_definitions(search_term, k=3)
+                for res in semantic_results:
+                    obj = res.get('obj') # Enriched object (Entity or Metric)
+                    if not obj:
+                        continue
+                        
+                    # Map Semantic Objects to Columns
+                    if res['type'] == 'metric':
+                        # Metric -> SQL Expression (treat as computed column)
+                        results.append({
+                            "table": "*", # Computed
+                            "column": obj.definition, # e.g. SUM(total_amount)
+                            "data_type": "REAL",
+                            "description": f"Metric: {obj.description}",
+                            "score": res['score']
+                        })
+                    elif res['type'] == 'entity':
+                        # Entity -> Primary Key or Table ref
+                        results.append({
+                            "table": obj.table_name,
+                            "column": obj.primary_key,
+                            "data_type": "INTEGER", # Assumption
+                            "description": f"Entity: {obj.description}",
+                            "score": res['score']
+                        })
+            except Exception as e:
+                print(f"ColumnFinder semantic search error: {e}")
+
         # Direct match
         if search_lower in self._column_index:
             table, column, dtype, desc = self._column_index[search_lower]

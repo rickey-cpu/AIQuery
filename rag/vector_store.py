@@ -123,18 +123,44 @@ class VectorStore:
         )
 
 
+
 def init_vector_store():
     """Initialize global vector store"""
     global _vector_store
     from config import config
     
+    # Check if OpenSearch is configured/preferred
+    use_opensearch = False
+    if hasattr(config, "opensearch") and config.opensearch.hosts:
+        # Simple check: if hosts are defined, try to use it
+        # You might want a stronger signal like config.vector_store.use_opensearch
+        use_opensearch = True
+        
+    if use_opensearch:
+        try:
+            from .opensearch_store import OpenSearchStore
+            _vector_store = OpenSearchStore()
+            print("Vector Store: Initialized OpenSearchStore")
+            
+            # Seed default examples if empty
+            # Note: OpenSearchStore implementation of count() might need to check sql_examples index
+            # For now, we'll skip auto-seeding or rely on a specific method
+            return _vector_store
+        except Exception as e:
+            print(f"Failed to initialize OpenSearchStore: {e}")
+            print("Falling back to ChromaDB")
+
     _vector_store = VectorStore(
         persist_directory=config.vector_store.persist_directory,
         collection_name=config.vector_store.collection_name
     )
+    print("Vector Store: Initialized ChromaDB")
     return _vector_store
 
 
-def get_vector_store() -> Optional[VectorStore]:
+def get_vector_store():
     """Get global vector store instance"""
+    global _vector_store
+    if _vector_store is None:
+        return init_vector_store()
     return _vector_store

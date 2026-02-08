@@ -116,10 +116,21 @@ class SemanticLayer:
         enriched = []
         for res in results:
             name = res.get('sql') # We stored name in 'sql' field for reuse
+            obj = None
             if name in self.entities:
-                enriched.append({"type": "entity", "obj": self.entities[name]})
+                obj = self.entities[name]
+                rtype = "entity"
             elif name in self.metrics:
-                enriched.append({"type": "metric", "obj": self.metrics[name]})
+                obj = self.metrics[name]
+                rtype = "metric"
+            
+            if obj:
+                enriched.append({
+                    "type": rtype,
+                    "obj": obj,
+                    "score": res.get("score", 0.0),
+                    "text": res.get("question", "")
+                })
         return enriched
 
     def _load_default_mappings(self):
