@@ -80,6 +80,16 @@ async def health_check():
     }
 
 
+@app.get("/api/health")
+async def api_health_check():
+    """API health check for Vue frontend"""
+    return {
+        "status": "healthy",
+        "version": "3.0.0",
+        "provider": config.llm.provider
+    }
+
+
 if __name__ == "__main__":
     uvicorn.run(
         "main:app",

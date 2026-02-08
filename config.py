@@ -10,7 +10,15 @@ from pathlib import Path
 
 @dataclass
 class LLMConfig:
-    """LLM Provider Configuration"""
+    """LLM Provider Configuration
+    
+    Supported Gemini models (2026) - from ai.google.dev:
+    - gemini-3-pro-preview: Most intelligent, multimodal, agent model
+    - gemini-3-flash-preview: Balanced speed/intelligence, scalable
+    - gemini-2.5-pro: Advanced reasoning for code/math/STEM
+    - gemini-2.5-flash: Best performance/price, large-scale processing
+    - gemini-2.5-flash-lite: Lightweight version
+    """
     provider: Literal["openai", "gemini", "ollama"] = "openai"
     model: str = "gpt-4"
     api_key: Optional[str] = None
@@ -18,11 +26,24 @@ class LLMConfig:
     temperature: float = 0.0
     max_tokens: int = 2000
     
+    # Available models by provider (2026)
+    GEMINI_MODELS = [
+        "gemini-3-pro-preview",      # Most intelligent
+        "gemini-3-flash-preview",    # Balanced speed/intelligence  
+        "gemini-2.5-pro",            # Advanced reasoning (stable)
+        "gemini-2.5-flash",          # Best performance/price (stable)
+        "gemini-2.5-flash-lite",     # Lightweight
+    ]
+    OPENAI_MODELS = ["gpt-4o", "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo"]
+    
     def __post_init__(self):
         if self.provider == "openai":
             self.api_key = self.api_key or os.getenv("OPENAI_API_KEY")
         elif self.provider == "gemini":
-            self.api_key = self.api_key or os.getenv("GEMINI_API_KEY")
+            self.api_key = self.api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+            # Default to stable flash model if not specified
+            if self.model == "gpt-4":
+                self.model = "gemini-2.5-flash"  # Stable, best performance/price
         elif self.provider == "ollama":
             self.base_url = self.base_url or "http://localhost:11434"
 
@@ -30,7 +51,7 @@ class LLMConfig:
 @dataclass
 class DatabaseConfig:
     """Database Configuration - Multi-database support"""
-    type: Literal["sqlite", "postgresql", "mysql", "sqlserver", "elasticsearch"] = "sqlite"
+    type: Literal["sqlite", "postgresql", "mysql", "sqlserver", "elasticsearch", "opensearch"] = "sqlite"
     host: str = "localhost"
     port: int = 5432
     database: str = "aiquery.db"
@@ -73,7 +94,7 @@ class DatabaseConfig:
 
 @dataclass 
 class ElasticsearchConfig:
-    """Elasticsearch/OpenSearch specific configuration"""
+    """Elasticsearch specific configuration"""
     hosts: list[str] = field(default_factory=lambda: ["http://localhost:9200"])
     username: str = ""
     password: str = ""
@@ -81,6 +102,22 @@ class ElasticsearchConfig:
     verify_certs: bool = True
     use_opensearch: bool = False  # Set True for OpenSearch
     default_index: str = "*"
+
+
+@dataclass
+class OpenSearchConfig:
+    """OpenSearch specific configuration"""
+    hosts: list[str] = field(default_factory=lambda: ["http://localhost:9200"])
+    username: str = ""
+    password: str = ""
+    use_ssl: bool = False
+    verify_certs: bool = True
+    default_index: str = "*"
+    # AWS OpenSearch Service
+    use_aws_auth: bool = False
+    aws_region: str = ""
+    aws_service: str = "es"  # 'es' or 'aoss' for Serverless
+    timeout: int = 30
 
 
 @dataclass
@@ -106,6 +143,7 @@ class Config:
     llm: LLMConfig = field(default_factory=LLMConfig)
     database: DatabaseConfig = field(default_factory=DatabaseConfig)
     elasticsearch: ElasticsearchConfig = field(default_factory=ElasticsearchConfig)
+    opensearch: OpenSearchConfig = field(default_factory=OpenSearchConfig)
     vector_store: VectorStoreConfig = field(default_factory=VectorStoreConfig)
     api: APIConfig = field(default_factory=APIConfig)
     
@@ -130,6 +168,12 @@ def load_config_from_env():
     config.llm.provider = os.getenv("LLM_PROVIDER", config.llm.provider)
     config.llm.model = os.getenv("LLM_MODEL", config.llm.model)
     
+    # Load API key based on provider
+    if config.llm.provider == "gemini":
+        config.llm.api_key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
+    elif config.llm.provider == "openai":
+        config.llm.api_key = os.getenv("OPENAI_API_KEY")
+    
     # Database Config
     config.database.type = os.getenv("DB_TYPE", config.database.type)
     config.database.host = os.getenv("DB_HOST", config.database.host)
@@ -148,6 +192,18 @@ def load_config_from_env():
     config.elasticsearch.username = os.getenv("ES_USER", config.elasticsearch.username)
     config.elasticsearch.password = os.getenv("ES_PASSWORD", config.elasticsearch.password)
     config.elasticsearch.use_opensearch = os.getenv("ES_USE_OPENSEARCH", "false").lower() == "true"
+    
+    # OpenSearch Config
+    os_hosts = os.getenv("OS_HOSTS")
+    if os_hosts:
+        config.opensearch.hosts = os_hosts.split(",")
+    config.opensearch.username = os.getenv("OS_USER", config.opensearch.username)
+    config.opensearch.password = os.getenv("OS_PASSWORD", config.opensearch.password)
+    config.opensearch.use_ssl = os.getenv("OS_USE_SSL", "false").lower() == "true"
+    config.opensearch.verify_certs = os.getenv("OS_VERIFY_CERTS", "true").lower() == "true"
+    config.opensearch.use_aws_auth = os.getenv("OS_USE_AWS_AUTH", "false").lower() == "true"
+    config.opensearch.aws_region = os.getenv("OS_AWS_REGION", config.opensearch.aws_region)
+    config.opensearch.aws_service = os.getenv("OS_AWS_SERVICE", config.opensearch.aws_service)
     
     return config
 
@@ -201,5 +257,20 @@ def get_database_connector():
             use_opensearch=config.elasticsearch.use_opensearch
         )
     
+    elif db_type == "opensearch":
+        from database.sources.opensearch import OpenSearchConnector
+        return OpenSearchConnector(
+            hosts=config.opensearch.hosts,
+            username=config.opensearch.username,
+            password=config.opensearch.password,
+            use_ssl=config.opensearch.use_ssl,
+            verify_certs=config.opensearch.verify_certs,
+            use_aws_auth=config.opensearch.use_aws_auth,
+            aws_region=config.opensearch.aws_region,
+            aws_service=config.opensearch.aws_service,
+            timeout=config.opensearch.timeout
+        )
+    
     else:
         raise ValueError(f"Unsupported database type: {db_type}")
+

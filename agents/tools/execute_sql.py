@@ -2,7 +2,7 @@
 Execute SQL Tool - Safe SQL execution with result formatting
 Inspired by FINCH's execute SQL capability
 """
-from typing import Any, Optional
+from typing import Any, Optional, ClassVar
 from langchain_core.tools import BaseTool
 from pydantic import BaseModel, Field
 import re
@@ -31,12 +31,15 @@ Only SELECT queries are allowed. Results are automatically limited for safety.
 Returns columns, rows, and row count."""
     args_schema: type[BaseModel] = ExecuteSQLInput
     
-    # Blocked patterns
-    BLOCKED_PATTERNS = [
+    # Blocked patterns (ClassVar to avoid Pydantic field detection)
+    BLOCKED_PATTERNS: ClassVar[list[str]] = [
         r'\bDROP\b', r'\bDELETE\b', r'\bTRUNCATE\b',
         r'\bALTER\b', r'\bCREATE\b', r'\bINSERT\b',
         r'\bUPDATE\b', r'\bGRANT\b', r'\bREVOKE\b',
     ]
+    
+    db_connector: Any = None
+    _blocked: list = []
     
     def __init__(self, db_connector=None, **kwargs):
         super().__init__(**kwargs)
