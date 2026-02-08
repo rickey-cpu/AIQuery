@@ -136,20 +136,64 @@
     <!-- Input Area (Fixed Bottom) -->
     <div class="input-area">
       <form @submit.prevent="submitQuery" class="input-form">
-        <!-- Agent Selector (Floating) -->
-        <div class="agent-floater">
-           <span class="agent-label">Using Agent ({{ agents.length }}):</span>
-            <div class="select-wrapper">
-                <select v-model="selectedAgentId" class="agent-select">
-                    <option :value="null">Default System</option>
-                    <option v-for="agent in agents" :key="agent.id" :value="agent.id">
-                        {{ agent.name }}
-                    </option>
-                </select>
-                <div class="select-icon">
-                  <svg viewBox="0 0 20 20" fill="currentColor"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+        <!-- Agent Selector (Custom Dropdown) -->
+        <div class="agent-selector-container">
+            <div class="agent-trigger" @click="toggleAgentMenu" :class="{ 'active': isAgentMenuOpen }">
+                <div class="agent-icon">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                </div>
+                <span class="agent-name">{{ getSelectedAgentName }}</span>
+                <div class="chevron" :class="{ 'rotate': isAgentMenuOpen }">
+                     <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
                 </div>
             </div>
+
+            <!-- Dropdown Menu -->
+             <transition name="fade-slide">
+                <div v-if="isAgentMenuOpen" class="agent-menu">
+                    <div class="menu-header">Select Assistant</div>
+                    <div 
+                        class="menu-item" 
+                        :class="{ 'selected': selectedAgentId === null }"
+                        @click="selectAgent(null)"
+                    >
+                        <div class="item-icon system">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                        </div>
+                        <div class="item-content">
+                            <span class="item-title">System Default</span>
+                            <span class="item-desc">General knowledge & router</span>
+                        </div>
+                        <div class="check" v-if="selectedAgentId === null">
+                             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        </div>
+                    </div>
+                    
+                    <div 
+                        v-for="agent in agents" 
+                        :key="agent.id" 
+                        class="menu-item"
+                        :class="{ 'selected': selectedAgentId === agent.id }"
+                        @click="selectAgent(agent.id)"
+                    >
+                        <div class="item-icon agent">
+                             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 0 1 10 10c0 5.52-4.48 10-10 10S2 17.52 2 12 6.48 2 12 2z"></path><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
+                        </div>
+                         <div class="item-content">
+                            <span class="item-title">{{ agent.name }}</span>
+                            <span class="item-desc">{{ agent.description || 'Custom Agent' }}</span>
+                        </div>
+                         <div class="check" v-if="selectedAgentId === agent.id">
+                             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        </div>
+                    </div>
+                </div>
+             </transition>
         </div>
 
         <div class="input-wrapper">
@@ -180,7 +224,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick, watch } from 'vue'
+import { ref, onMounted, nextTick, watch, computed, onUnmounted } from 'vue'
 import axios from 'axios'
 
 // Props
@@ -196,6 +240,38 @@ const result = ref(null)
 const agents = ref([])
 const selectedAgentId = ref(null)
 const chatContainer = ref(null)
+const isAgentMenuOpen = ref(false)
+
+const getSelectedAgentName = computed(() => {
+    if (!selectedAgentId.value) return 'Default System'
+    const agent = agents.value.find(a => a.id === selectedAgentId.value)
+    return agent ? agent.name : 'Unknown Agent'
+})
+
+function toggleAgentMenu() {
+    isAgentMenuOpen.value = !isAgentMenuOpen.value
+}
+
+function selectAgent(id) {
+    selectedAgentId.value = id
+    isAgentMenuOpen.value = false
+}
+
+// Close menu when clicking outside
+function handleClickOutside(event) {
+    if (isAgentMenuOpen.value && !event.target.closest('.agent-selector-container')) {
+        isAgentMenuOpen.value = false
+    }
+}
+
+onMounted(async () => {
+    document.addEventListener('click', handleClickOutside)
+    await fetchAgents()
+})
+
+onUnmounted(() => {
+    document.removeEventListener('click', handleClickOutside)
+})
 
 const examples = [
   'Show total revenue by month for last year',
@@ -208,20 +284,11 @@ const api = axios.create({
   timeout: 120000
 })
 
-// Lifecycle
-onMounted(async () => {
-    await fetchAgents()
-})
-
 async function fetchAgents() {
     try {
         const response = await api.get('/agents')
-        console.log("Agents API Response:", response.data)
         if (Array.isArray(response.data)) {
             agents.value = response.data
-            console.log("Agents loaded:", agents.value.length)
-        } else {
-            console.error("Agents response is not an array:", response.data)
         }
     } catch (e) {
         console.error("Failed to fetch agents", e)
@@ -690,59 +757,159 @@ function formatTime(date) {
   position: relative;
 }
 
-.agent-floater {
+/* Agent Selector */
+.agent-selector-container {
   position: absolute;
-  bottom: 100%; /* Position above the input-area */
-  left: 24px; /* Align with padding */
-  margin-bottom: 12px;
+  bottom: 100%;
+  left: 0;
+  margin-bottom: 16px;
+  margin-left: 24px;
+  z-index: 100;
+  min-width: 200px;
+}
+
+.agent-trigger {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   background: var(--bg-card);
-  padding: 6px 12px;
-  border-radius: 8px;
+  padding: 8px 12px;
+  border-radius: 12px;
   border: 1px solid var(--border-color);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  cursor: pointer;
+  transition: all 0.2s;
+  user-select: none;
 }
 
-.agent-label {
+.agent-trigger:hover, .agent-trigger.active {
+  border-color: var(--accent-primary);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.agent-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-primary);
+}
+
+.agent-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.chevron {
+  color: var(--text-secondary);
+  transition: transform 0.2s;
+}
+
+.chevron.rotate {
+  transform: rotate(180deg);
+}
+
+/* Dropdown Menu */
+.agent-menu {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  width: 280px;
+  background: #161b22;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  margin-bottom: 8px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+  padding: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+  transform-origin: bottom left;
+}
+
+.menu-header {
   font-size: 11px;
   font-weight: 600;
-  color: var(--text-secondary);
   text-transform: uppercase;
-  background: #0f1115;
-  padding: 2px 6px;
-  border-radius: 4px;
+  color: var(--text-muted);
+  padding: 8px 12px;
+  margin-bottom: 4px;
 }
 
-.select-wrapper {
-  position: relative;
-}
-
-.agent-select {
-  appearance: none;
-  background: transparent;
-  border: none;
-  color: var(--text-primary);
-  font-size: 13px;
-  padding-right: 20px;
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
   cursor: pointer;
+  transition: all 0.2s;
 }
 
-.agent-select:focus {
-  outline: none;
+.menu-item:hover {
+  background: rgba(255, 255, 255, 0.05);
 }
 
-.select-icon {
-  position: absolute;
-  right: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 14px;
-  height: 14px;
-  pointer-events: none;
+.menu-item.selected {
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.item-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.05);
   color: var(--text-secondary);
+}
+
+.item-icon.system {
+  color: #a855f7;
+}
+
+.item-icon.agent {
+  color: #3b82f6;
+}
+
+.item-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.item-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.item-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
+}
+
+.check {
+  color: var(--accent-primary);
+}
+
+/* Animations */
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+  transition: all 0.2s ease-out;
+}
+
+.fade-slide-enter-from,
+.fade-slide-leave-to {
+  opacity: 0;
+  transform: translateY(10px) scale(0.95);
 }
 
 .input-wrapper {
