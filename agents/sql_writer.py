@@ -228,9 +228,13 @@ class SQLWriterAgent:
             })
             return result
         except Exception as e:
+            import traceback
+            tb = traceback.format_exc()
+            error_sql = f"/*\nERROR GENERATING SQL:\n{str(e)}\n\nTRACEBACK:\n{tb}\n*/"
+            
             return SQLResult(
-                sql="",
-                explanation=f"Error generating SQL: {str(e)}",
+                sql=error_sql,
+                explanation=f"Error generating SQL. Check the SQL console for technical details.",
                 confidence=0.0
             )
     

@@ -5,7 +5,7 @@ Inspired by FINCH's self-querying capability
 from typing import Optional
 from dataclasses import dataclass, field
 from langchain_core.tools import BaseTool
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, PrivateAttr
 
 
 class ColumnMatch(BaseModel):
@@ -39,13 +39,15 @@ Use this tool when you need to identify which table and column to use for a metr
 Input should be a business term like 'revenue', 'customer', 'order date', etc."""
     args_schema: type[BaseModel] = ColumnFinderInput
     
-    # Column index for semantic search
-    _column_index: dict = {}
+    # Internal state
+    _column_index: dict = PrivateAttr(default_factory=dict)
+    _schema_manager: Optional[object] = PrivateAttr(default=None)
+    _semantic_layer: Optional[object] = PrivateAttr(default=None)
     
     def __init__(self, schema_manager=None, semantic_layer=None, **kwargs):
         super().__init__(**kwargs)
-        self.schema_manager = schema_manager
-        self.semantic_layer = semantic_layer
+        self._schema_manager = schema_manager
+        self._semantic_layer = semantic_layer
         self._build_index()
     
     def _build_index(self):
@@ -100,8 +102,8 @@ Input should be a business term like 'revenue', 'customer', 'order date', etc.""
         self._column_index = default_mappings
         
         # Add from semantic layer if available
-        if self.semantic_layer:
-            for mapping in self.semantic_layer.term_mappings:
+        if self._semantic_layer:
+            for mapping in self._semantic_layer.term_mappings:
                 self._column_index[mapping.term] = (
                     mapping.table,
                     mapping.sql_column,

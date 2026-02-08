@@ -79,12 +79,18 @@ class TestConnectionResponse(BaseModel):
 @router.get("/agents", response_model=list[AgentResponse])
 async def list_agents(active_only: bool = True):
     """List all agents"""
-    repo = get_agent_repository()
-    if not repo:
-        raise HTTPException(status_code=503, detail="Agent repository not initialized")
-    
-    agents = await repo.list_all(active_only=active_only)
-    return [AgentResponse(**agent.to_dict()) for agent in agents]
+    try:
+        repo = get_agent_repository()
+        if not repo:
+            raise HTTPException(status_code=503, detail="Agent repository not initialized")
+        
+        agents = await repo.list_all(active_only=active_only)
+        return [AgentResponse(**agent.to_dict()) for agent in agents]
+    except Exception as e:
+        print(f"ERROR list_agents: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/agents", response_model=AgentResponse)

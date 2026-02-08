@@ -42,6 +42,7 @@ class AgentRepositoryMySQL:
     async def connect(self):
         """Create connection pool and initialize schema"""
         # First ensure database exists
+        print(f"Checking database '{self.database}'...")
         await self._ensure_database_exists()
         
         self._pool = await aiomysql.create_pool(
@@ -56,6 +57,7 @@ class AgentRepositoryMySQL:
         )
         await self._init_schema()
         logger.info(f"Connected to MySQL database: {self.database}")
+        print(f"Connected to MySQL database: {self.database}")
     
     async def _ensure_database_exists(self):
         """Check if database exists and create if not"""
@@ -71,9 +73,11 @@ class AgentRepositoryMySQL:
             )
             async with conn.cursor() as cur:
                 await cur.execute(f"CREATE DATABASE IF NOT EXISTS {self.database}")
+                print(f"Database '{self.database}' ensures to exist.")
             conn.close()
         except Exception as e:
             logger.error(f"Failed to ensure database existence: {e}")
+            print(f"Failed to ensure database existence: {e}")
             raise
 
     async def disconnect(self):

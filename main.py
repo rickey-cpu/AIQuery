@@ -2,11 +2,16 @@
 AI Query Agent - Main Entry Point
 Natural Language to SQL conversion powered by LLM
 """
+import os
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
+from dotenv import load_dotenv
+
+# Load env vars immediately
+load_dotenv()
 
 from config import config, load_config_from_env
 
@@ -15,7 +20,7 @@ from config import config, load_config_from_env
 async def lifespan(app: FastAPI):
     """Application lifespan handler"""
     # Startup
-    print("🚀 Starting AI Query Agent...")
+    print("Starting AI Query Agent...")
     load_config_from_env()
     
     # Initialize components
@@ -25,22 +30,26 @@ async def lifespan(app: FastAPI):
     await init_database()
     init_vector_store()
     
-    # Initialize agent repository (PostgreSQL)
+    # Initialize agent repository
     try:
         from models import init_agent_repository
-        await init_agent_repository()
-        print("🤖 Agent Repository: PostgreSQL connected")
+        repo = await init_agent_repository()
+        if repo:
+            db_type = os.getenv("AGENT_DB_TYPE", "postgresql").upper()
+            print(f"Agent Repository: {db_type} connected")
+        else:
+            print("Agent Repository: Initialization failed")
     except Exception as e:
-        print(f"⚠️ Agent Repository: Not available ({e})")
+        print(f"Agent Repository: Not available ({e})")
     
-    print("✅ AI Query Agent ready!")
-    print(f"📊 Database: {config.database.type}")
-    print(f"🤖 LLM Provider: {config.llm.provider} ({config.llm.model})")
+    print("AI Query Agent ready!")
+    print(f"Database: {config.database.type}")
+    print(f"LLM Provider: {config.llm.provider} ({config.llm.model})")
     
     yield
     
     # Shutdown
-    print("👋 Shutting down AI Query Agent...")
+    print("Shutting down AI Query Agent...")
 
 
 # Create FastAPI app
@@ -61,7 +70,6 @@ app.add_middleware(
 )
 
 # Mount static files for frontend
-import os
 if os.path.exists("frontend/dist"):
     app.mount("/static", StaticFiles(directory="frontend/dist"), name="static")
 else:

@@ -48,7 +48,7 @@
                 <div class="message-content">
                     <div class="response-card">
                         <!-- Meta Info -->
-                        <div class="response-meta">
+                        <div class="response-meta" v-if="item.result">
                             <span class="intent-badge">
                                 {{ item.result.intent_type || 'Query' }}
                             </span>

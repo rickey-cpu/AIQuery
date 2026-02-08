@@ -6,6 +6,8 @@ from .agent import Agent, DatabaseSource
 # Repository factory
 import os
 
+_agent_repo = None
+
 async def init_agent_repository():
     """Initialize global agent repository based on config"""
     global _agent_repo

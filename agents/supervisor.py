@@ -326,8 +326,14 @@ class SupervisorAgent:
     async def _validate_sql(self, state: AgentState) -> AgentState:
         """Node: Validate generated SQL"""
         sql_result = state.get("sql_result")
+        
         if not sql_result or not sql_result.sql:
             state["error"] = "No SQL generated"
+            return state
+            
+        # Check if SQL is actually an error report
+        if sql_result.sql.strip().startswith("/*\nERROR"):
+            state["error"] = "SQL Generation Failed (see details in SQL console)"
             return state
         
         validation = self.validation_agent.validate(sql_result.sql)

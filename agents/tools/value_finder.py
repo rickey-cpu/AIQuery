@@ -4,7 +4,7 @@ Inspired by FINCH's value resolution capability
 """
 from typing import Optional
 from langchain_core.tools import BaseTool
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, PrivateAttr
 
 
 class ValueFinderInput(BaseModel):
@@ -31,12 +31,13 @@ Use this tool when the user mentions abbreviated terms like 'HN' for 'Hanoi',
 Returns the actual values to use in SQL WHERE clauses."""
     args_schema: type[BaseModel] = ValueFinderInput
     
-    # Value mappings index
-    _value_index: dict = {}
+    # Internal state
+    _value_index: dict = PrivateAttr(default_factory=dict)
+    _semantic_layer: Optional[object] = PrivateAttr(default=None)
     
     def __init__(self, semantic_layer=None, **kwargs):
         super().__init__(**kwargs)
-        self.semantic_layer = semantic_layer
+        self._semantic_layer = semantic_layer
         self._build_index()
     
     def _build_index(self):
@@ -101,8 +102,8 @@ Returns the actual values to use in SQL WHERE clauses."""
         }
         
         # Add from semantic layer if available
-        if self.semantic_layer:
-            for mapping in self.semantic_layer.value_mappings:
+        if self._semantic_layer:
+            for mapping in self._semantic_layer.value_mappings:
                 self._value_index[mapping.alias.lower()] = {
                     "column": mapping.column,
                     "values": [mapping.actual_value],
