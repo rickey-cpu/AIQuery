@@ -29,7 +29,7 @@ class AgentContext(BaseModel):
 
 class SQLWriterAgent:
     """
-    SQL Writer Agent v2 - Text-to-SQL with Toolset
+    SQL Writer Agent v3 - Text-to-SQL with Toolset & Dialect Optimization
     
     Enhanced Features (from FINCH diagrams):
     - Column Finder Tool - Find columns by semantic meaning
@@ -37,7 +37,39 @@ class SQLWriterAgent:
     - Table Rules Tool - Get table constraints and examples
     - Execute SQL Tool - Safe query execution
     - Agent Context Building - Accumulate context from tools
+    - Dialect Specific Optimization - Custom rules for SQLite, MySQL, Postgres, SQL Server
     """
+    
+    DIALECT_OPTIMIZATIONS = {
+        "sqlite": """
+- Use `LIMIT n` for top n results.
+- Use `strftime('%Y-%m', date_col)` for date formatting.
+- Use `random()` for random ordering.
+- SQLite does NOT support `RIGHT JOIN` or `FULL OUTER JOIN` (use `LEFT JOIN`).
+- Date manipulation: `date(col, '+1 day')`.
+""",
+        "mysql": """
+- Use `LIMIT n` for top n results.
+- Use `DATE_FORMAT(date_col, '%Y-%m')` for date formatting.
+- Use `RAND()` for random ordering.
+- Use backticks ` for identifiers if needed.
+- String concatenation: `CONCAT(a, b)`.
+""",
+        "postgresql": """
+- Use `LIMIT n` for top n results.
+- Use `TO_CHAR(date_col, 'YYYY-MM')` for date formatting.
+- Use `RANDOM()` for random ordering.
+- Use `::` for type casting (e.g., `val::text`).
+- ILIKE for case-insensitive matching.
+""",
+        "sqlserver": """
+- Use `TOP n` for top n results (e.g., `SELECT TOP 10 * FROM ...`).
+- Use `FORMAT(date_col, 'yyyy-MM')` for date formatting.
+- Use `NEWID()` for random ordering.
+- String concatenation: `+` or `CONCAT`.
+- Use `[ ]` for identifiers if needed.
+"""
+    }
     
     SYSTEM_PROMPT = """You are a World-Class SQL Expert and Database Administrator. Your goal is to generate highly optimized, production-ready SQL queries.
 
@@ -52,24 +84,26 @@ class SQLWriterAgent:
 
 ## CRITICAL Performance & Optimization Rules:
 1. **NO `SELECT *`**: Always explicitly list the columns you need.
-2. **SARGable Queries**: Avoid functions on columns in WHERE clauses (e.g., use `date >= '2023-01-01'` to use index instead of `YEAR(date) = 2023`).
-3. **Efficient Filtering**:
+2. **Dialect Specific Rules**:
+{dialect_rules}
+3. **SARGable Queries**: Avoid functions on columns in WHERE clauses (e.g., use `date >= '2023-01-01'` to use index instead of `YEAR(date) = 2023`).
+4. **Efficient Filtering**:
    - **Filter Early**: Place conditions in `WHERE` clauses instead of `HAVING` whenever possible to reduce data size before aggregation.
    - Prefer `EXISTS` over `IN` for subqueries.
    - Use `UNION ALL` instead of `UNION` unless you specifically need to remove duplicates.
    - Avoid `SELECT DISTINCT` when possible; use `GROUP BY` for aggregation if needed.
    - **Wildcards**: Place wildcards at the end of strings (`'abc%'`) to utilize indexes; avoid leading wildcards (`'%abc'`).
-4. **CTEs > Subqueries**: Use Common Table Expressions (WITH clauses) for complex logic to improve readability and execution plan stability.
-5. **Joins**: 
+5. **CTEs > Subqueries**: Use Common Table Expressions (WITH clauses) for complex logic to improve readability and execution plan stability.
+6. **Joins**: 
    - Use standard `JOIN` syntax (never implicit joins in WHERE).
    - **Pre-Aggregation**: If joining large fact tables with dimensions, consider aggregating the fact table in a CTE before joining.
-6. **Aggregations**: 
+7. **Aggregations**: 
    - Use proper GROUP BY clauses.
    - Use `COUNT(1)` or `COUNT(*)` for row counting (avoid `COUNT(col)` unless handling NULLs specifically).
    - Use `HAVING` only for filtering on aggregated results.
-7. **Window Functions**: Use `ROW_NUMBER()`, `RANK()`, `LEAD()`, `LAG()` for analytical queries when appropriate.
-8. **NULL Handling**: Use `COALESCE()` or `IFNULL()` to handle potential NULL values safely in calculations.
-9. **Limit & Ordering**: Always include `ORDER BY` when using `LIMIT`.
+8. **Window Functions**: Use `ROW_NUMBER()`, `RANK()`, `LEAD()`, `LAG()` for analytical queries when appropriate.
+9. **NULL Handling**: Use `COALESCE()` or `IFNULL()` to handle potential NULL values safely in calculations.
+10. **Limit & Ordering**: Always include `ORDER BY` when using `LIMIT` or `TOP`.
 
 ## General Rules:
 - Generate ONLY SELECT queries (no INSERT, UPDATE, DELETE, DROP).
@@ -86,12 +120,13 @@ class SQLWriterAgent:
     ])
     
     def __init__(self, llm, schema_manager=None, semantic_layer=None, 
-                 vector_store=None, db_connector=None):
+                 vector_store=None, db_connector=None, db_type: str = "generic"):
         self.llm = llm
         self.schema_manager = schema_manager
         self.semantic_layer = semantic_layer
         self.vector_store = vector_store
         self.db_connector = db_connector
+        self.db_type = db_type.lower()
         self.parser = PydanticOutputParser(pydantic_object=SQLResult)
         
         # Initialize tools
@@ -243,8 +278,20 @@ LIMIT 10;
         return "No custom mappings defined"
     
     def _build_prompt(self, question: str) -> ChatPromptTemplate:
-        """Build the prompt with few-shot examples"""
+        """Build the prompt with few-shot examples and dialect optimizations"""
         examples = self._get_few_shot_examples(question)
+        
+        # Get dialect-specific rules
+        dialect_rules = self.DIALECT_OPTIMIZATIONS.get(self.db_type, "No specific dialect rules.")
+        
+        # Inject dialect rules into system prompt
+        system_prompt = self.SYSTEM_PROMPT.format(
+            schema="{schema}",
+            semantic_mappings="{semantic_mappings}",
+            agent_context="{agent_context}",
+            format_instructions="{format_instructions}",
+            dialect_rules=dialect_rules
+        )
         
         few_shot_prompt = FewShotChatMessagePromptTemplate(
             example_prompt=self.EXAMPLE_TEMPLATE,
@@ -252,7 +299,7 @@ LIMIT 10;
         )
         
         return ChatPromptTemplate.from_messages([
-            ("system", self.SYSTEM_PROMPT),
+            ("system", system_prompt),
             few_shot_prompt,
             ("human", "Convert this question to SQL: {question}")
         ])

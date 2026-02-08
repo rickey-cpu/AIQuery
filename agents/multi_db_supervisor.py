@@ -228,6 +228,7 @@ If unsure, respond with the first database ID.
         supervisor = SupervisorAgent(
             llm=self.llm,
             db_connector=connector,
+            db_type=db_info["type"],  # Pass db_type
             schema_manager=self.schema_manager,
             semantic_layer=self.semantic_layer,
             vector_store=self.vector_store

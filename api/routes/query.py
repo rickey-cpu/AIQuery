@@ -74,6 +74,7 @@ def _get_supervisor():
     return SupervisorAgent(
         llm=llm,
         db_connector=db,
+        db_type=config.database.db_type if hasattr(config.database, 'db_type') else "sqlite",  # Pass db_type
         schema_manager=schema_manager,
         semantic_layer=semantic_layer,
         vector_store=vector_store
@@ -162,7 +163,8 @@ async def generate_sql_only(request: QueryRequest):
             llm=llm,
             schema_manager=SchemaManager(),
             semantic_layer=SemanticLayer(),
-            vector_store=get_vector_store()
+            vector_store=get_vector_store(),
+            db_type=request.database_id if request.database_id else "sqlite"  # Best effort guess or default
         )
         
         result = await sql_writer.generate_sql(request.question)
@@ -193,12 +195,19 @@ async def query_with_context(request: QueryRequest):
         from database import get_database
         
         llm = _get_llm()
+        db = get_database()
+        # Try to determine type
+        db_type = "sqlite"
+        if hasattr(db, 'db_type'):
+            db_type = db.db_type
+            
         sql_writer = SQLWriterAgent(
             llm=llm,
             schema_manager=SchemaManager(),
             semantic_layer=SemanticLayer(),
             vector_store=get_vector_store(),
-            db_connector=get_database()
+            db_connector=db,
+            db_type=db_type
         )
         
         result = await sql_writer.generate_and_execute(request.question)

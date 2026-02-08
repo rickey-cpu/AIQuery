@@ -87,6 +87,7 @@ class SupervisorAgent:
         self,
         llm=None,
         db_connector=None,
+        db_type: str = "generic",  # Added db_type
         schema_manager=None,
         semantic_layer=None,
         vector_store=None,
@@ -95,6 +96,7 @@ class SupervisorAgent:
         use_cache: bool = True
     ):
         self.db_connector = db_connector
+        self.db_type = db_type
         self.use_gateway = use_gateway
         self.use_memory = use_memory
         self.use_cache = use_cache
@@ -131,7 +133,8 @@ class SupervisorAgent:
             schema_manager=schema_manager,
             semantic_layer=semantic_layer,
             vector_store=vector_store,
-            db_connector=db_connector
+            db_connector=db_connector,
+            db_type=db_type  # Pass db_type
         )
         self.validation_agent = ValidationAgent()
         self.report_agent = ReportAgent(llm)
