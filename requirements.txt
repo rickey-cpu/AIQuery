@@ -1,0 +1,43 @@
+# AI Query Agent - Dependencies
+
+# Web Framework
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+python-multipart>=0.0.6
+
+# LLM & Agent Framework
+langchain>=0.1.0
+langchain-openai>=0.0.5
+langchain-google-genai>=0.0.6
+langgraph>=0.0.20
+
+# Vector Store
+chromadb>=0.4.22
+sentence-transformers>=2.3.1
+
+# Database - Core
+sqlalchemy>=2.0.25
+aiosqlite>=0.19.0
+
+# Database - MySQL
+aiomysql>=0.2.0
+
+# Database - PostgreSQL
+asyncpg>=0.29.0
+
+# Database - SQL Server
+aioodbc>=0.5.0
+pyodbc>=5.0.0
+
+# Database - Elasticsearch/OpenSearch
+elasticsearch[async]>=8.0.0
+opensearch-py>=2.4.0
+
+# Utilities
+python-dotenv>=1.0.0
+pydantic>=2.5.0
+httpx>=0.26.0
+
+# Development
+pytest>=7.4.0
+pytest-asyncio>=0.23.0
