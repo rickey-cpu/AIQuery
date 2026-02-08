@@ -77,12 +77,13 @@ else:
 
 # Import and include routers
 from api.routes import query, schema, history
-from api.routes import agents
+from api.routes import agents, semantic
 
 app.include_router(query.router, prefix="/api", tags=["Query"])
 app.include_router(schema.router, prefix="/api", tags=["Schema"])
 app.include_router(history.router, prefix="/api", tags=["History"])
 app.include_router(agents.router, prefix="/api", tags=["Agents"])
+app.include_router(semantic.router, prefix="/api", tags=["Semantic"])
 
 
 @app.get("/")

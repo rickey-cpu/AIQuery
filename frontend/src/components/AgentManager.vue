@@ -62,9 +62,11 @@
             </div>
           </div>
           
+
           <!-- Card Footer -->
           <div class="card-footer">
             <button class="action-btn" @click="editAgent(agent)">Edit Config</button>
+            <button class="action-btn" @click="openSemanticManager(agent)">Manage Knowledge</button>
             <button class="action-btn delete" @click="deleteAgent(agent)">Delete</button>
           </div>
         </div>
@@ -77,6 +79,17 @@
           <h3 class="empty-title">No Agents Yet</h3>
           <p class="empty-text">Create your first AI agent to start querying your databases using natural language.</p>
           <button class="create-btn" @click="openCreateModal">Create Agent</button>
+        </div>
+      </div>
+
+      <!-- Semantic Manager Modal -->
+      <div v-if="showSemanticManager" class="modal-backdrop" @click.self="closeSemanticManager">
+        <div class="modal lg-modal">
+           <SemanticManager 
+             :agent-id="selectedAgentForSemantic.id"
+             :agent-name="selectedAgentForSemantic.name"
+             @close="closeSemanticManager"
+           />
         </div>
       </div>
 
@@ -215,12 +228,15 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
+import SemanticManager from './SemanticManager.vue'
 
 // State
 const agents = ref([])
 const loading = ref(false)
 const showModal = ref(false)
 const showDbModal = ref(false)
+const showSemanticManager = ref(false)
+const selectedAgentForSemantic = ref(null)
 const isEditing = ref(false)
 
 const form = ref({
@@ -276,6 +292,16 @@ function editAgent(agent) {
   // Deep copy
   form.value = JSON.parse(JSON.stringify(agent))
   showModal.value = true
+}
+
+function openSemanticManager(agent) {
+  selectedAgentForSemantic.value = agent
+  showSemanticManager.value = true
+}
+
+function closeSemanticManager() {
+  showSemanticManager.value = false
+  selectedAgentForSemantic.value = null
 }
 
 async function deleteAgent(agent) {
@@ -391,7 +417,7 @@ function getDbTypeInitials(type) {
   background: var(--accent-primary);
   color: white;
   border: none;
-  padding: 10px 20px;
+  padding: 6px 16px;
   border-radius: 8px;
   font-weight: 600;
   display: flex;
@@ -585,6 +611,7 @@ function getDbTypeInitials(type) {
   box-shadow: 0 20px 50px rgba(0,0,0,0.5);
 }
 .sm-modal { max-width: 450px; }
+.lg-modal { max-width: 800px; height: 600px; }
 
 .modal-header {
   padding: 20px 24px;

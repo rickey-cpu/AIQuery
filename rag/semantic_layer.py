@@ -16,6 +16,7 @@ class SemanticEntity:
     primary_key: str # PK column (e.g. "id")
     description: str # Description for LLM
     synonyms: List[str] = field(default_factory=list)
+    agent_id: Optional[str] = None # Scoping field
 
 @dataclass
 class SemanticMetric:
@@ -25,6 +26,7 @@ class SemanticMetric:
     description: str
     condition: Optional[str] = None # e.g. "status = 'completed'"
     synonyms: List[str] = field(default_factory=list)
+    agent_id: Optional[str] = None # Scoping field
 
 @dataclass
 class SemanticRelationship:
@@ -33,6 +35,7 @@ class SemanticRelationship:
     to_entity: str
     join_condition: str # e.g. "orders.customer_id = customers.id"
     relation_type: str # "one_to_many", "many_to_one", "one_to_one"
+    agent_id: Optional[str] = None # Scoping field
 
 @dataclass
 class TermMapping:
@@ -62,7 +65,8 @@ class SemanticLayer:
     - Legacy Term/Value Mapping support
     """
     
-    def __init__(self, mappings_file: Optional[str] = None):
+    def __init__(self, mappings_file: Optional[str] = None, agent_id: Optional[str] = None):
+        self.agent_id = agent_id
         self.entities: Dict[str, SemanticEntity] = {}
         self.metrics: Dict[str, SemanticMetric] = {}
         self.relationships: List[SemanticRelationship] = []
@@ -88,7 +92,11 @@ class SemanticLayer:
         # Initialize OpenSearch Store for Semantic Definitions
         # We use a separate collection for semantic definitions
         self.vector_store = OpenSearchStore()
-        self._sync_vector_store()
+        
+        # Only sync if this is a system-level layer or explicit sync requested
+        # For agent-specific layers, data is managed via API
+        if not agent_id: 
+            self._sync_vector_store()
 
     def _sync_vector_store(self):
         """Sync metrics and entities to vector store if empty"""
@@ -99,30 +107,52 @@ class SemanticLayer:
             # Index Entities
             for e in self.entities.values():
                 text = f"Entity: {e.name}. {e.description}. Synonyms: {', '.join(e.synonyms)}"
-                examples.append({"text": text, "sql": e.name, "type": "entity"})
+                examples.append({"text": text, "sql": e.name, "type": "entity", "description": e.description})
                 
             # Index Metrics
             for m in self.metrics.values():
                 text = f"Metric: {m.name}. {m.description}. Synonyms: {', '.join(m.synonyms)}"
-                examples.append({"text": text, "sql": m.name, "type": "metric"})
+                examples.append({"text": text, "sql": m.name, "type": "metric", "description": m.description})
             
             if examples:
-                self.vector_store.add_definitions(examples)
+                self.vector_store.add_definitions(examples, agent_id=self.agent_id)
 
     def search_definitions(self, query: str, k: int = 3) -> List[Dict]:
         """Search for relevant semantic definitions using vector store"""
-        results = self.vector_store.search_definitions(query, k=k)
+        results = self.vector_store.search_definitions(query, k=k, agent_id=self.agent_id)
         # Enrich results with actual objects
         enriched = []
         for res in results:
             name = res.get('sql') # We stored name in 'sql' field for reuse
             obj = None
+            
+            # Use cached local lookup if possible (for system defaults)
             if name in self.entities:
                 obj = self.entities[name]
                 rtype = "entity"
             elif name in self.metrics:
                 obj = self.metrics[name]
                 rtype = "metric"
+            else:
+                # If not found in local memory (SemanticLayer instantiated per request),
+                # it might be an agent-specific definition from DB/VectorStore.
+                # Construct a partial object from result
+                rtype = res.get("type")
+                if rtype == "entity":
+                     obj = SemanticEntity(
+                         name=name, 
+                         table_name="?", # We might need to fetch full details if not in memory
+                         primary_key="?", 
+                         description=res.get("question", "").split(".")[1] if "." in res.get("question") else "",
+                         agent_id=self.agent_id
+                     )
+                elif rtype == "metric":
+                     obj = SemanticMetric(
+                         name=name, 
+                         definition="?", 
+                         description=res.get("question", "").split(".")[1] if "." in res.get("question") else "",
+                         agent_id=self.agent_id
+                     )
             
             if obj:
                 enriched.append({

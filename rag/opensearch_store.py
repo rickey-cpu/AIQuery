@@ -5,11 +5,17 @@ from typing import List, Dict, Any, Optional
 from opensearchpy import OpenSearch, RequestsHttpConnection, AWSV4SignerAuth
 import boto3
 from config import config
+try:
+    from sentence_transformers import SentenceTransformer
+    HAS_EMBEDDINGS = True
+except ImportError:
+    HAS_EMBEDDINGS = False
+    print("Warning: sentence-transformers not found. Vector search disabled.")
 
 class OpenSearchStore:
     """
     OpenSearch Store for Semantic Layer
-    Handles connection and semantic search operations
+    Handles connection and semantic search operations (Hybrid: Keyword + Vector)
     """
     
     def __init__(self):
@@ -18,6 +24,15 @@ class OpenSearchStore:
             "semantic_definitions": "semantic_definitions",
             "semantic_terms": "semantic_terms"
         }
+        
+        # Initialize embedding model if available
+        self.embedding_model = None
+        if HAS_EMBEDDINGS:
+            try:
+                self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+            except Exception as e:
+                print(f"Failed to load embedding model: {e}")
+
         self._ensure_indices()
 
     def _create_client(self) -> OpenSearch:
@@ -44,7 +59,8 @@ class OpenSearchStore:
             "settings": {
                 "index": {
                     "number_of_shards": 1,
-                    "number_of_replicas": 0
+                    "number_of_replicas": 0,
+                    "knn": True  # Enable KNN
                 }
             },
             "mappings": {
@@ -53,8 +69,16 @@ class OpenSearchStore:
                     "name": {"type": "keyword"},
                     "type": {"type": "keyword"},
                     "description": {"type": "text"},
-                    # We can add knn_vector type here if we want embeddings later
-                    # "embedding": {"type": "knn_vector", "dimension": 384} 
+                    "agent_id": {"type": "keyword"},
+                    "embedding": {
+                        "type": "knn_vector",
+                        "dimension": 384,
+                        "method": {
+                            "name": "hnsw",
+                            "engine": "nmslib",
+                            "space_type": "cosinesimil"
+                        }
+                    }
                 }
             }
         }
@@ -67,14 +91,25 @@ class OpenSearchStore:
             "settings": {
                 "index": {
                     "number_of_shards": 1,
-                    "number_of_replicas": 0
+                    "number_of_replicas": 0,
+                    "knn": True
                 }
             },
             "mappings": {
                 "properties": {
                     "question": {"type": "text", "analyzer": "standard"},
                     "sql": {"type": "text"},
-                    "description": {"type": "text"}
+                    "description": {"type": "text"},
+                    "agent_id": {"type": "keyword"},
+                    "embedding": {
+                        "type": "knn_vector",
+                        "dimension": 384,
+                        "method": {
+                            "name": "hnsw",
+                            "engine": "nmslib",
+                            "space_type": "cosinesimil"
+                        }
+                    }
                 }
             }
         }
@@ -82,29 +117,89 @@ class OpenSearchStore:
         if not self.client.indices.exists(index="sql_examples"):
             self.client.indices.create(index="sql_examples", body=examples_body)
 
-    def add_definitions(self, definitions: List[Dict[str, Any]]):
-        """Add definitions to OpenSearch"""
+    def _generate_id(self, name: str, type_: str, agent_id: str) -> str:
+        """Generate deterministic ID for semantic definitions"""
+        # ID format: agent_id_type_name (sanitized)
+        safe_name = "".join(x for x in name if x.isalnum() or x in "-_")
+        return f"{agent_id}_{type_}_{safe_name}"
+
+    def add_definitions(self, definitions: List[Dict[str, Any]], agent_id: Optional[str] = None):
+        """Add definitions to OpenSearch (Upsert)"""
         if not definitions:
             return
 
-        # Bulk insert
-        body = ""
-        for d in definitions:
-            action = {"index": {"_index": self.indices["semantic_definitions"]}}
-            body += str(action).replace("'", '"') + "\n"
-            data = {
-                "text": d.get("text", ""),
-                "name": d.get("sql", ""), # Mapping 'sql' to 'name' for consistency with VectorStore interface
-                "type": d.get("type", "unknown"),
-                "description": d.get("description", "")
-            }
-            body += str(data).replace("'", '"') + "\n"
+        effective_agent_id = agent_id or "system"
+        
+        # Batch size for bulk operations
+        BATCH_SIZE = 200
+        
+        for i in range(0, len(definitions), BATCH_SIZE):
+            chunk = definitions[i:i + BATCH_SIZE]
+            body = ""
             
-        if body:
-            self.client.bulk(body=body)
+            for d in chunk:
+                name = d.get("sql", "") # Using 'sql' as name/identifier
+                type_ = d.get("type", "unknown")
+                doc_id = self._generate_id(name, type_, effective_agent_id)
+                
+                text_content = d.get("text", "")
+                
+                # Generate embedding if not already present (migration script might pass it, but here we generate)
+                # Wait, migration script calls this method. If I generate embedding here, it's fine.
+                # But if migration script pre-calculates, we should respect it? 
+                # The current code calculates it here.
+                
+                embedding = d.get("embedding") # Check if already in input
+                if not embedding and self.embedding_model:
+                    try:
+                        embedding = self.embedding_model.encode(text_content).tolist()
+                    except Exception as e:
+                        print(f"Error generating embedding for {name}: {e}")
+
+                action = {
+                    "index": {
+                        "_index": self.indices["semantic_definitions"],
+                        "_id": doc_id
+                    }
+                }
+                body += str(action).replace("'", '"') + "\n"
+                data = {
+                    "text": text_content,
+                    "name": name, 
+                    "type": type_,
+                    "description": d.get("description", ""),
+                    "agent_id": effective_agent_id
+                }
+                if embedding:
+                    data["embedding"] = embedding
+                    
+                body += str(data).replace("'", '"') + "\n"
+                
+            if body:
+                try:
+                    self.client.bulk(body=body)
+                except Exception as e:
+                    print(f"Error in bulk indexing batch {i}: {e}")
+            
             self.client.indices.refresh(index=self.indices["semantic_definitions"])
 
-    def add_examples(self, examples: List[Dict[str, Any]]):
+    def delete_definition(self, name: str, type_: str, agent_id: Optional[str] = None) -> bool:
+        """Delete a definition by name and type"""
+        effective_agent_id = agent_id or "system"
+        doc_id = self._generate_id(name, type_, effective_agent_id)
+        
+        try:
+            self.client.delete(
+                index=self.indices["semantic_definitions"],
+                id=doc_id,
+                refresh=True
+            )
+            return True
+        except Exception as e:
+            print(f"Error deleting definition {doc_id}: {e}")
+            return False
+
+    def add_examples(self, examples: List[Dict[str, Any]], agent_id: Optional[str] = None):
         """Add SQL examples to OpenSearch (Few-shot)"""
         if not examples:
             return
@@ -113,56 +208,172 @@ class OpenSearchStore:
         for ex in examples:
             action = {"index": {"_index": "sql_examples"}}
             body += str(action).replace("'", '"') + "\n"
+            
+            question = ex.get("question", "")
+            
+            # Generate embedding
+            embedding = []
+            if self.embedding_model:
+                try:
+                    embedding = self.embedding_model.encode(question).tolist()
+                except Exception as e:
+                    print(f"Error generating embedding for example: {e}")
+
             data = {
-                "question": ex.get("question", ""),
+                "question": question,
                 "sql": ex.get("sql", ""),
-                "description": ex.get("description", "")
+                "description": ex.get("description", ""),
+                "agent_id": agent_id or "system"
             }
+            if embedding:
+                data["embedding"] = embedding
+
             body += str(data).replace("'", '"') + "\n"
             
         if body:
             self.client.bulk(body=body)
             self.client.indices.refresh(index="sql_examples")
 
-    def search_definitions(self, query: str, k: int = 3) -> List[Dict]:
-        """Search for definitions using fuzzy text match (or vector if enabled)"""
-        # For now, using standard text search with fuzziness
-        body = {
-            "size": k,
-            "query": {
+    def search_definitions(self, query: str, k: int = 3, agent_id: Optional[str] = None) -> List[Dict]:
+        """Search for definitions using Hybrid Search (Vector + Keyword)"""
+        
+        # 1. Keyword Query (Base)
+        if query == "*":
+             keyword_query = {"match_all": {}}
+        else:
+            keyword_query = {
                 "multi_match": {
                     "query": query,
                     "fields": ["text^2", "description"],
                     "fuzziness": "AUTO"
                 }
             }
-        }
-        
-        response = self.client.search(index=self.indices["semantic_definitions"], body=body)
-        
-        results = []
-        for hit in response["hits"]["hits"]:
-            source = hit["_source"]
-            results.append({
-                "question": source.get("text"),
-                "sql": source.get("name"),
-                "type": source.get("type"),
-                "score": hit["_score"],
-                "obj": None # Will be enriched by Semantic Layer
-            })
-            
-        return results
 
-    def search_similar(self, question: str, k: int = 3) -> List[Dict]:
-        """Search for similar SQL examples (Few-shot)"""
+        # 2. Vector Query (KNN)
+        vector_query = None
+        if self.embedding_model and query != "*":
+            try:
+                query_vector = self.embedding_model.encode(query).tolist()
+                vector_query = {
+                    "knn": {
+                        "embedding": {
+                            "vector": query_vector,
+                            "k": k
+                        }
+                    }
+                }
+            except Exception as e:
+                print(f"Error encoding query: {e}")
+
+        # 3. Filter Context
+        filters = []
+        if agent_id:
+             filters.append({"terms": {"agent_id": [agent_id, "system"]}})
+        else:
+             filters.append({"term": {"agent_id": "system"}})
+
+        # 4. Construct Hybrid Query
+        # If vector is available, we use 'should' to combine both signals
+        # If query is '*', we rely on keyword_query (match_all)
+        
+        if vector_query:
+            must_clause = [
+                {
+                    "bool": {
+                        "should": [
+                            keyword_query, 
+                            vector_query
+                        ],
+                        "minimum_should_match": 1
+                    }
+                }
+            ]
+        else:
+            must_clause = [keyword_query]
+
         body = {
             "size": k,
             "query": {
-                "match": {
-                    "question": {
-                        "query": question,
-                        "fuzziness": "AUTO"
+                "bool": {
+                    "must": must_clause,
+                    "filter": filters
+                }
+            }
+        }
+        
+        try:
+            response = self.client.search(index=self.indices["semantic_definitions"], body=body)
+            
+            results = []
+            for hit in response["hits"]["hits"]:
+                source = hit["_source"]
+                results.append({
+                    "question": source.get("text"),
+                    "sql": source.get("name"),
+                    "type": source.get("type"),
+                    "score": hit["_score"],
+                    "obj": None
+                })
+            return results
+        except Exception as e:
+            print(f"Search failed: {e}")
+            return []
+
+    def search_similar(self, question: str, k: int = 3, agent_id: Optional[str] = None) -> List[Dict]:
+        """Search for similar SQL examples (Hybrid)"""
+        
+        # Keyword part
+        keyword_query = {
+            "match": {
+                "question": {
+                    "query": question,
+                    "fuzziness": "AUTO"
+                }
+            }
+        }
+        
+        # Vector part
+        vector_query = None
+        if self.embedding_model:
+            try:
+                query_vector = self.embedding_model.encode(question).tolist()
+                vector_query = {
+                    "knn": {
+                        "embedding": {
+                            "vector": query_vector,
+                            "k": k
+                        }
                     }
+                }
+            except Exception as e:
+                print(f"Error encoding query: {e}")
+        
+        # Filters
+        filters = []
+        if agent_id:
+             filters.append({"terms": {"agent_id": [agent_id, "system"]}})
+        else:
+             filters.append({"term": {"agent_id": "system"}})
+
+        # Combine
+        if vector_query:
+            must_clause = [
+                {
+                    "bool": {
+                        "should": [keyword_query, vector_query],
+                        "minimum_should_match": 1
+                    }
+                }
+            ]
+        else:
+            must_clause = [keyword_query]
+
+        body = {
+            "size": k,
+            "query": {
+                "bool": {
+                    "must": must_clause,
+                    "filter": filters
                 }
             }
         }
