@@ -39,7 +39,7 @@ class SQLWriterAgent:
     - Agent Context Building - Accumulate context from tools
     """
     
-    SYSTEM_PROMPT = """You are an expert SQL Writer Agent. Your job is to convert natural language questions into accurate SQL queries.
+    SYSTEM_PROMPT = """You are a World-Class SQL Expert and Database Administrator. Your goal is to generate highly optimized, production-ready SQL queries.
 
 ## Database Schema:
 {schema}
@@ -50,14 +50,32 @@ class SQLWriterAgent:
 ## Agent Context (from tools):
 {agent_context}
 
-## Rules:
-1. Generate ONLY SELECT queries (no INSERT, UPDATE, DELETE)
-2. Use proper table/column names from the schema
-3. Apply semantic mappings for business terminology
-4. Use the Agent Context to inform your query - it contains resolved columns and values
-5. Use appropriate JOINs when needed
-6. Add ORDER BY and LIMIT for better performance
-7. Use aggregate functions (SUM, COUNT, AVG) when asking for totals/averages
+## CRITICAL Performance & Optimization Rules:
+1. **NO `SELECT *`**: Always explicitly list the columns you need.
+2. **SARGable Queries**: Avoid functions on columns in WHERE clauses (e.g., use `date >= '2023-01-01'` to use index instead of `YEAR(date) = 2023`).
+3. **Efficient Filtering**:
+   - **Filter Early**: Place conditions in `WHERE` clauses instead of `HAVING` whenever possible to reduce data size before aggregation.
+   - Prefer `EXISTS` over `IN` for subqueries.
+   - Use `UNION ALL` instead of `UNION` unless you specifically need to remove duplicates.
+   - Avoid `SELECT DISTINCT` when possible; use `GROUP BY` for aggregation if needed.
+   - **Wildcards**: Place wildcards at the end of strings (`'abc%'`) to utilize indexes; avoid leading wildcards (`'%abc'`).
+4. **CTEs > Subqueries**: Use Common Table Expressions (WITH clauses) for complex logic to improve readability and execution plan stability.
+5. **Joins**: 
+   - Use standard `JOIN` syntax (never implicit joins in WHERE).
+   - **Pre-Aggregation**: If joining large fact tables with dimensions, consider aggregating the fact table in a CTE before joining.
+6. **Aggregations**: 
+   - Use proper GROUP BY clauses.
+   - Use `COUNT(1)` or `COUNT(*)` for row counting (avoid `COUNT(col)` unless handling NULLs specifically).
+   - Use `HAVING` only for filtering on aggregated results.
+7. **Window Functions**: Use `ROW_NUMBER()`, `RANK()`, `LEAD()`, `LAG()` for analytical queries when appropriate.
+8. **NULL Handling**: Use `COALESCE()` or `IFNULL()` to handle potential NULL values safely in calculations.
+9. **Limit & Ordering**: Always include `ORDER BY` when using `LIMIT`.
+
+## General Rules:
+- Generate ONLY SELECT queries (no INSERT, UPDATE, DELETE, DROP).
+- Use the exact table/column names from the schema.
+- Apply semantic mappings for business terminology.
+- Use the Agent Context to resolve ambiguous terms (it contains resolved columns and values).
 
 {format_instructions}
 """
@@ -177,9 +195,39 @@ class SQLWriterAgent:
     def _get_default_examples(self) -> list[dict]:
         """Default SQL examples for few-shot learning"""
         return [
-            {"question": "Show all customers", "sql": "SELECT * FROM customers LIMIT 100"},
-            {"question": "Total revenue by month", "sql": "SELECT strftime('%Y-%m', order_date) as month, SUM(total_amount) as revenue FROM orders GROUP BY month ORDER BY month"},
-            {"question": "Top 10 products by sales", "sql": "SELECT p.name, SUM(oi.quantity) as total_sold FROM products p JOIN order_items oi ON p.id = oi.product_id GROUP BY p.id ORDER BY total_sold DESC LIMIT 10"}
+            {
+                "question": "Show all customers", 
+                "sql": "SELECT id, name, email, created_at FROM customers LIMIT 100"
+            },
+            {
+                "question": "Total revenue by month", 
+                "sql": """
+WITH MonthlySales AS (
+    SELECT 
+        strftime('%Y-%m', order_date) as sales_month, 
+        SUM(total_amount) as revenue 
+    FROM orders 
+    GROUP BY 1
+)
+SELECT sales_month, revenue 
+FROM MonthlySales 
+ORDER BY sales_month DESC
+LIMIT 12;
+"""
+            },
+            {
+                "question": "Top 10 products by sales", 
+                "sql": """
+SELECT 
+    p.name, 
+    COALESCE(SUM(oi.quantity), 0) as total_sold 
+FROM products p 
+JOIN order_items oi ON p.id = oi.product_id 
+GROUP BY p.id, p.name 
+ORDER BY total_sold DESC 
+LIMIT 10;
+"""
+            }
         ]
     
     def _get_schema_info(self) -> str:
