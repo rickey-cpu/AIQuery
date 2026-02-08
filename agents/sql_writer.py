@@ -94,7 +94,9 @@ DATABASE CONTEXT RULES
      {schema}
   3. Semantic Mappings (Business Terms → SQL):
      {semantic_mappings}
-  4. Agent Context (from tools):
+  4. Database Graph & Metrics (Advanced Context):
+     {semantic_context}
+  5. Agent Context (from tools):
      {agent_context}
 
 - Dialect Specific Optimization Rules:
@@ -329,8 +331,18 @@ LIMIT 10;
     def _get_semantic_mappings(self) -> str:
         """Get semantic layer mappings"""
         if self.semantic_layer:
-            return self.semantic_layer.get_mappings_description()
+            # We might want to deprecate this in favor of get_semantic_context
+            # as it covers more. For now, keep it for legacy mappings.
+            if hasattr(self.semantic_layer, 'get_mappings_description'):
+                 return self.semantic_layer.get_mappings_description()
+            return "No custom mappings defined"
         return "No custom mappings defined"
+    
+    def _get_semantic_context(self) -> str:
+        """Get advanced semantic context (graph, metrics)"""
+        if self.semantic_layer and hasattr(self.semantic_layer, 'get_semantic_context'):
+             return self.semantic_layer.get_semantic_context()
+        return "No semantic knowledge graph available"
     
     def _build_prompt(self, question: str) -> ChatPromptTemplate:
         """Build the prompt with few-shot examples and dialect optimizations"""
@@ -344,6 +356,7 @@ LIMIT 10;
             db_type=self.db_type,
             schema="{schema}",
             semantic_mappings="{semantic_mappings}",
+            semantic_context="{semantic_context}",
             agent_context="{agent_context}",
             format_instructions="{format_instructions}",
             dialect_rules=dialect_rules
@@ -374,6 +387,7 @@ LIMIT 10;
                 "question": question,
                 "schema": self._get_schema_info(),
                 "semantic_mappings": self._get_semantic_mappings(),
+                "semantic_context": self._get_semantic_context(),
                 "agent_context": self._format_context(context),
                 "format_instructions": self.parser.get_format_instructions()
             })
