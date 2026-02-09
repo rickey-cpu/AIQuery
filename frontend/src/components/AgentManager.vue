@@ -425,7 +425,7 @@ function getDbTypeInitials(type) {
   gap: 8px;
   cursor: pointer;
   transition: all 0.2s;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.2);
 }
 
 .create-btn:hover {
@@ -452,7 +452,7 @@ function getDbTypeInitials(type) {
 
 .agent-card:hover {
   border-color: var(--accent-primary);
-  box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
 }
 
 .card-header {
@@ -470,7 +470,7 @@ function getDbTypeInitials(type) {
 .agent-icon {
   width: 48px;
   height: 48px;
-  background: linear-gradient(135deg, rgba(88, 166, 255, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.12) 0%, rgba(99, 102, 241, 0.12) 100%);
   border: 1px solid var(--border-color);
   border-radius: 12px;
   display: flex;
@@ -488,8 +488,8 @@ function getDbTypeInitials(type) {
   font-weight: 600;
   text-transform: uppercase;
 }
-.status-badge.active { background: rgba(35, 134, 54, 0.15); color: #3fb950; border: 1px solid rgba(35, 134, 54, 0.2); }
-.status-badge.inactive { background: rgba(110, 118, 129, 0.15); color: #8b949e; border: 1px solid rgba(110, 118, 129, 0.2); }
+.status-badge.active { background: rgba(22, 163, 74, 0.12); color: #16a34a; border: 1px solid rgba(22, 163, 74, 0.2); }
+.status-badge.inactive { background: rgba(148, 163, 184, 0.2); color: #64748b; border: 1px solid rgba(148, 163, 184, 0.4); }
 
 .agent-name {
   font-size: 18px;
@@ -513,7 +513,7 @@ function getDbTypeInitials(type) {
 
 .card-body {
   padding: 20px;
-  background: rgba(255, 255, 255, 0.01);
+  background: var(--bg-input);
   flex: 1;
 }
 
@@ -531,7 +531,7 @@ function getDbTypeInitials(type) {
 }
 
 .stat-label { color: var(--text-secondary); }
-.stat-value { font-weight: 600; background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px; }
+.stat-value { font-weight: 600; background: var(--bg-hover); padding: 2px 6px; border-radius: 4px; }
 .routing-value { font-weight: 600; color: var(--accent-primary); }
 .routing-value.manual { color: var(--text-secondary); }
 
@@ -572,7 +572,7 @@ function getDbTypeInitials(type) {
   cursor: pointer;
   border-radius: 4px;
 }
-.action-btn:hover { background: rgba(255,255,255,0.05); color: var(--text-primary); }
+.action-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
 .action-btn.delete:hover { color: #f85149; background: rgba(248, 81, 73, 0.1); }
 
 /* Empty State */
@@ -591,7 +591,7 @@ function getDbTypeInitials(type) {
 .modal-backdrop {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.7);
+  background: rgba(15, 23, 42, 0.35);
   backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
@@ -608,7 +608,7 @@ function getDbTypeInitials(type) {
   max-height: 90vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.2);
 }
 .sm-modal { max-width: 450px; }
 .lg-modal { max-width: 800px; height: 600px; }
@@ -646,7 +646,7 @@ function getDbTypeInitials(type) {
 .textarea { min-height: 80px; resize: vertical; }
 
 .checkbox-wrapper {
-  background: rgba(255,255,255,0.03);
+  background: var(--bg-input);
   padding: 16px;
   border-radius: 8px;
   border: 1px solid var(--border-color);

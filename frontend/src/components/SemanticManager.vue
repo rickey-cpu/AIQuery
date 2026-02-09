@@ -56,7 +56,12 @@
             <input v-model="newEntity.name" placeholder="Name (e.g. Customer)" required class="input" :disabled="isEditing">
             <input v-model="newEntity.table_name" placeholder="Table (e.g. customers)" class="input">
             <input v-model="newEntity.primary_key" placeholder="Primary Key (e.g. id)" class="input">
-            <textarea v-model="newEntity.description" placeholder="Description" required class="textarea"></textarea>
+            <MarkdownEditor
+              v-model="newEntity.description"
+              title="Description"
+              placeholder="Write the entity description in Markdown..."
+              required
+            />
             <input v-model="newEntity.synonyms_str" placeholder="Synonyms (comma separated)" class="input">
             <div class="form-actions">
               <button type="button" @click="showAddEntity = false" class="cancel-btn">Cancel</button>
@@ -98,7 +103,12 @@
           <form @submit.prevent="saveMetric">
             <input v-model="newMetric.name" placeholder="Name (e.g. Revenue)" required class="input" :disabled="isEditing">
             <input v-model="newMetric.definition" placeholder="SQL Definition (e.g. SUM(amount))" required class="input">
-            <textarea v-model="newMetric.description" placeholder="Description" required class="textarea"></textarea>
+            <MarkdownEditor
+              v-model="newMetric.description"
+              title="Description"
+              placeholder="Write the metric description in Markdown..."
+              required
+            />
             <input v-model="newMetric.condition" placeholder="Condition (e.g. status='paid')" class="input">
             <input v-model="newMetric.synonyms_str" placeholder="Synonyms (comma separated)" class="input">
             <div class="form-actions">
@@ -115,6 +125,7 @@
 <script setup>
 import { ref, onMounted, reactive } from 'vue'
 import axios from 'axios'
+import MarkdownEditor from './MarkdownEditor.vue'
 
 const props = defineProps({
   agentId: String,
@@ -367,7 +378,7 @@ async function deleteMetric(name) {
   top: 16px; left: 16px; right: 16px;
   background: var(--bg-card);
   border: 1px solid var(--border-color);
-  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  box-shadow: 0 16px 30px rgba(15, 23, 42, 0.15);
   padding: 16px;
   border-radius: 8px;
   z-index: 10;
@@ -377,6 +388,10 @@ async function deleteMetric(name) {
 
 .mini-modal input, .mini-modal textarea {
   width: 100%;
+  margin-bottom: 8px;
+}
+
+.mini-modal .markdown-editor {
   margin-bottom: 8px;
 }
 

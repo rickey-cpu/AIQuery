@@ -463,7 +463,7 @@ function formatTime(date) {
 
 .suggestion-card:hover {
   border-color: var(--accent-primary);
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--bg-hover);
   transform: translateY(-2px);
 }
 
@@ -501,7 +501,7 @@ function formatTime(date) {
   border-radius: 20px;
   border-top-right-radius: 4px;
   max-width: 80%;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+  box-shadow: 0 8px 16px rgba(37, 99, 235, 0.2);
   font-size: 15px;
   line-height: 1.5;
 }
@@ -546,7 +546,7 @@ function formatTime(date) {
 }
 
 .intent-badge {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--bg-input);
   border: 1px solid var(--border-color);
   color: var(--text-secondary);
   padding: 2px 8px;
@@ -575,7 +575,7 @@ function formatTime(date) {
 /* SQL Block */
 .sql-block {
   margin-bottom: 20px;
-  background: #0d1117; /* Very dark for code */
+  background: #f8fafc;
   border: 1px solid var(--border-color);
   border-radius: 8px;
   overflow: hidden;
@@ -586,7 +586,7 @@ function formatTime(date) {
   justify-content: space-between;
   align-items: center;
   padding: 8px 12px;
-  background: rgba(255, 255, 255, 0.03);
+  background: #eef2ff;
   border-bottom: 1px solid var(--border-color);
 }
 
@@ -620,7 +620,7 @@ function formatTime(date) {
 .sql-code {
   font-family: 'Fira Code', 'Menlo', monospace;
   font-size: 13px;
-  color: #4ade80; /* Bright Green */
+  color: #0f172a;
   white-space: pre-wrap;
   margin: 0;
 }
@@ -674,7 +674,7 @@ function formatTime(date) {
 }
 
 .result-table th {
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--bg-input);
   padding: 10px 16px;
   font-weight: 600;
   color: var(--text-secondary);
@@ -690,7 +690,7 @@ function formatTime(date) {
 }
 
 .result-table tr:hover td {
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--bg-hover);
 }
 
 .result-table tr:last-child td {
@@ -702,7 +702,7 @@ function formatTime(date) {
   text-align: center;
   font-size: 12px;
   color: var(--text-muted);
-  background: rgba(255, 255, 255, 0.01);
+  background: var(--bg-input);
   border-top: 1px solid var(--border-color);
   font-style: italic;
 }
@@ -745,7 +745,7 @@ function formatTime(date) {
   left: 0;
   right: 0;
   padding: 24px;
-  background: rgba(15, 17, 21, 0.85); /* Glass effect background */
+  background: rgba(248, 250, 252, 0.9);
   backdrop-filter: blur(12px);
   border-top: 1px solid var(--border-color);
   z-index: 50;
@@ -784,7 +784,7 @@ function formatTime(date) {
 
 .agent-trigger:hover, .agent-trigger.active {
   border-color: var(--accent-primary);
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--bg-hover);
 }
 
 .agent-icon {
@@ -816,11 +816,11 @@ function formatTime(date) {
   bottom: 100%;
   left: 0;
   width: 280px;
-  background: #161b22;
+  background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: 12px;
   margin-bottom: 8px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
   padding: 8px;
   max-height: 300px;
   overflow-y: auto;
@@ -847,7 +847,7 @@ function formatTime(date) {
 }
 
 .menu-item:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--bg-hover);
 }
 
 .menu-item.selected {
@@ -862,7 +862,7 @@ function formatTime(date) {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--bg-input);
   color: var(--text-secondary);
 }
 
@@ -918,20 +918,20 @@ function formatTime(date) {
 
 .main-input {
   width: 100%;
-  background: #1c2128;
+  background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: 16px;
   padding: 16px 60px 16px 20px; /* Right padding for button */
   font-size: 16px;
   color: var(--text-primary);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
   transition: all 0.2s;
 }
 
 .main-input:focus {
   outline: none;
   border-color: var(--accent-primary);
-  box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.2);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
 }
 
 .send-btn {
@@ -958,8 +958,8 @@ function formatTime(date) {
 }
 
 .send-btn:disabled {
-  background: #30363d;
-  color: #8b949e;
+  background: var(--border-color);
+  color: var(--text-muted);
   cursor: not-allowed;
 }
 
