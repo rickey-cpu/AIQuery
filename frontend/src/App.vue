@@ -125,29 +125,31 @@ onMounted(async () => {
 <style>
 /* Modern CSS Reset & Variables */
 :root {
-  --bg-dark: #0f1115;
-  --bg-sidebar: #161b22;
-  --bg-card: #1c2128;
-  --bg-input: #0d1117;
+  --bg-dark: #f5f7fb;
+  --bg-sidebar: #ffffff;
+  --bg-card: #ffffff;
+  --bg-input: #f1f5f9;
+  --bg-tertiary: #e2e8f0;
+  --bg-hover: #eef2ff;
   
-  --text-primary: #e6edf3;
-  --text-secondary: #8b949e;
-  --text-muted: #484f58;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
   
-  --accent-primary: #58a6ff;
-  --accent-hover: #1f6feb;
-  --accent-success: #238636;
-  --accent-danger: #da3633;
-  --accent-warning: #d29922;
+  --accent-primary: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-success: #16a34a;
+  --accent-danger: #dc2626;
+  --accent-warning: #d97706;
   
-  --border-color: #30363d;
+  --border-color: #e2e8f0;
   --radius-sm: 6px;
   --radius-md: 12px;
   --radius-lg: 16px;
   
-  --shadow-sm: 0 1px 2px rgba(0,0,0,0.1);
-  --shadow-md: 0 4px 12px rgba(0,0,0,0.15);
-  --shadow-glow: 0 0 20px rgba(88, 166, 255, 0.15);
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.08);
+  --shadow-md: 0 8px 20px rgba(15, 23, 42, 0.08);
+  --shadow-glow: 0 0 20px rgba(37, 99, 235, 0.18);
 }
 
 * {
@@ -240,12 +242,12 @@ body {
 }
 
 .nav-item:hover {
-  background: rgba(255,255,255,0.03);
+  background: rgba(37, 99, 235, 0.08);
   color: var(--text-primary);
 }
 
 .nav-item.active {
-  background: rgba(88, 166, 255, 0.1);
+  background: rgba(37, 99, 235, 0.12);
   color: var(--accent-primary);
 }
 
@@ -300,7 +302,7 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: 0 32px;
-  background: rgba(15, 17, 21, 0.8);
+  background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(10px);
 }
 
@@ -397,7 +399,7 @@ body {
 .btn-primary {
   background: var(--accent-primary);
   color: white;
-  box-shadow: 0 2px 8px rgba(88, 166, 255, 0.25);
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.2);
 }
 
 .btn-primary:hover {
@@ -422,7 +424,7 @@ body {
 }
 
 .btn-ghost:hover {
-  background: rgba(255,255,255,0.05);
+  background: rgba(37, 99, 235, 0.08);
   color: var(--text-primary);
 }
 

@@ -1,27 +1,27 @@
 /* AI Query Agent - Vue 3 Design System */
 
 :root {
-    /* Colors - Dark Theme */
-    --bg-primary: #0f172a;
-    --bg-secondary: #1e293b;
-    --bg-tertiary: #334155;
-    --bg-card: rgba(30, 41, 59, 0.8);
+    /* Colors - Light Theme */
+    --bg-primary: #f5f7fb;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #e2e8f0;
+    --bg-card: rgba(255, 255, 255, 0.9);
 
-    --text-primary: #f1f5f9;
-    --text-secondary: #94a3b8;
-    --text-muted: #64748b;
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --text-muted: #94a3b8;
 
-    --accent-primary: #3b82f6;
-    --accent-secondary: #8b5cf6;
-    --accent-success: #10b981;
-    --accent-warning: #f59e0b;
-    --accent-error: #ef4444;
+    --accent-primary: #2563eb;
+    --accent-secondary: #7c3aed;
+    --accent-success: #16a34a;
+    --accent-warning: #d97706;
+    --accent-error: #dc2626;
 
-    --gradient-primary: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
-    --gradient-card: linear-gradient(180deg, rgba(59, 130, 246, 0.1) 0%, transparent 100%);
+    --gradient-primary: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+    --gradient-card: linear-gradient(180deg, rgba(37, 99, 235, 0.12) 0%, transparent 100%);
 
-    --border-color: rgba(148, 163, 184, 0.1);
-    --shadow-glow: 0 0 40px rgba(59, 130, 246, 0.15);
+    --border-color: rgba(148, 163, 184, 0.35);
+    --shadow-glow: 0 0 32px rgba(37, 99, 235, 0.18);
 
     --radius-sm: 8px;
     --radius-md: 12px;
@@ -52,7 +52,7 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-    background: var(--bg-secondary);
+    background: var(--bg-primary);
 }
 
 ::-webkit-scrollbar-thumb {
@@ -90,12 +90,12 @@ body {
 .btn-primary {
     background: var(--gradient-primary);
     color: white;
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    box-shadow: 0 6px 16px rgba(37, 99, 235, 0.24);
 }
 
 .btn-primary:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+    box-shadow: 0 8px 24px rgba(37, 99, 235, 0.3);
 }
 
 .btn-secondary {
@@ -104,7 +104,7 @@ body {
 }
 
 .btn-secondary:hover {
-    background: var(--bg-secondary);
+    background: #dbe4f3;
 }
 
 .btn-ghost {
@@ -114,7 +114,7 @@ body {
 }
 
 .btn-ghost:hover {
-    background: var(--bg-tertiary);
+    background: rgba(37, 99, 235, 0.08);
     color: var(--text-primary);
 }
 
@@ -134,7 +134,7 @@ body {
 .input:focus {
     outline: none;
     border-color: var(--accent-primary);
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
 }
 
 .input::placeholder {
@@ -185,7 +185,7 @@ body {
 
 /* Code */
 .code {
-    background: var(--bg-primary);
+    background: #f8fafc;
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
     padding: 16px;
