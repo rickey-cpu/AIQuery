@@ -2,6 +2,7 @@
 OpenSearch Connector for Semantic Layer
 """
 from typing import List, Dict, Any, Optional
+import json
 from opensearchpy import OpenSearch, RequestsHttpConnection, AWSV4SignerAuth
 import boto3
 from config import config
@@ -131,7 +132,7 @@ class OpenSearchStore:
         effective_agent_id = agent_id or "system"
         
         # Batch size for bulk operations
-        BATCH_SIZE = 200
+        BATCH_SIZE = 100
         
         for i in range(0, len(definitions), BATCH_SIZE):
             chunk = definitions[i:i + BATCH_SIZE]
@@ -144,11 +145,7 @@ class OpenSearchStore:
                 
                 text_content = d.get("text", "")
                 
-                # Generate embedding if not already present (migration script might pass it, but here we generate)
-                # Wait, migration script calls this method. If I generate embedding here, it's fine.
-                # But if migration script pre-calculates, we should respect it? 
-                # The current code calculates it here.
-                
+                # Generate embedding if not already present
                 embedding = d.get("embedding") # Check if already in input
                 if not embedding and self.embedding_model:
                     try:
@@ -162,7 +159,8 @@ class OpenSearchStore:
                         "_id": doc_id
                     }
                 }
-                body += str(action).replace("'", '"') + "\n"
+                body += json.dumps(action) + "\n"
+                
                 data = {
                     "text": text_content,
                     "name": name, 
@@ -173,7 +171,7 @@ class OpenSearchStore:
                 if embedding:
                     data["embedding"] = embedding
                     
-                body += str(data).replace("'", '"') + "\n"
+                body += json.dumps(data) + "\n"
                 
             if body:
                 try:
@@ -207,7 +205,7 @@ class OpenSearchStore:
         body = ""
         for ex in examples:
             action = {"index": {"_index": "sql_examples"}}
-            body += str(action).replace("'", '"') + "\n"
+            body += json.dumps(action) + "\n"
             
             question = ex.get("question", "")
             
@@ -228,7 +226,7 @@ class OpenSearchStore:
             if embedding:
                 data["embedding"] = embedding
 
-            body += str(data).replace("'", '"') + "\n"
+            body += json.dumps(data) + "\n"
             
         if body:
             self.client.bulk(body=body)
