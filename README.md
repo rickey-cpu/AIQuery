@@ -1,90 +1,175 @@
 # AI Query Agent
 
-> Natural Language to SQL conversion powered by LLM - Inspired by **Uber FINCH**
+> Hệ thống **Natural Language to SQL** theo kiến trúc multi-agent, lấy cảm hứng từ Uber FINCH.
 
 ![Python](https://img.shields.io/badge/Python-3.11+-blue)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.109+-green)
+![Vue](https://img.shields.io/badge/Vue-3-42b883)
 ![LangGraph](https://img.shields.io/badge/LangGraph-Multi--Agent-purple)
 
-## 🚀 Features
+## Tổng quan
 
-- **Natural Language to SQL**: Ask questions in plain language, get SQL queries
-- **Multi-Agent Architecture**: Supervisor → Intent → SQL Writer → Validation workflow
-- **Semantic Layer**: Map business terms to SQL (e.g., "doanh thu" → `total_amount`)
-- **RAG with ChromaDB**: Few-shot learning from SQL examples
-- **Modern Dark UI**: Chat interface with real-time results
+AI Query Agent cho phép đặt câu hỏi bằng ngôn ngữ tự nhiên và nhận về:
+- SQL query đã sinh
+- giải thích logic
+- dữ liệu thực thi (nếu bật execute)
 
-## 📁 Project Structure
+Dự án hiện hỗ trợ:
+- **Multi-agent orchestration** (Supervisor + các agent chuyên biệt)
+- **Multi-database** (SQLite, MySQL, PostgreSQL, SQL Server, Elasticsearch, OpenSearch)
+- **RAG + Semantic Layer** để tăng độ chính xác khi map business terms
+- **Web UI (Vue 3 + Vite)** và REST API qua FastAPI
+- **Agent management API** để quản lý nhiều agent/kết nối DB động
 
-```
-AIQuery/
-├── main.py                 # FastAPI entry point
-├── config.py               # Configuration management
-├── requirements.txt        # Dependencies
-├── agents/                 # Multi-agent framework
-│   ├── supervisor.py       # LangGraph orchestrator
-│   ├── intent_agent.py     # Intent classification
-│   ├── sql_writer.py       # Text-to-SQL conversion
-│   └── validation_agent.py # SQL safety validation
-├── rag/                    # RAG components
-│   ├── vector_store.py     # ChromaDB integration
-│   ├── schema_manager.py   # Schema metadata
-│   └── semantic_layer.py   # Business term mappings
-├── database/               # Database layer
-│   └── connector.py        # SQLite connector
-├── api/routes/             # API endpoints
-│   ├── query.py            # Natural language queries
-│   ├── schema.py           # Schema management
-│   └── history.py          # Query history
-└── frontend/               # Web UI
-    ├── index.html
-    ├── styles.css
-    └── app.js
-```
+---
 
-## 🛠️ Installation
+## Kiến trúc chính
+
+### Backend (FastAPI)
+- Entry point: `main.py`
+- Routers:
+  - `api/routes/query.py`: query NL2SQL, sql-only, stream, tools endpoint
+  - `api/routes/agents.py`: CRUD agent + test DB connection
+  - `api/routes/schema.py`: metadata/schema APIs
+  - `api/routes/semantic.py`: semantic layer APIs
+  - `api/routes/history.py`: query history APIs
+
+### Agent layer
+- `agents/supervisor.py`: điều phối workflow chính
+- `agents/multi_db_supervisor.py`: routing query theo agent nhiều DB
+- `agents/sql_writer.py`: sinh SQL
+- `agents/validation_agent.py`: validate SQL an toàn
+- `agents/report_agent.py`, `agents/insight_agent.py`, `agents/visualization_agent.py`: agent chuyên biệt
+- `agents/tools/*`: column finder, value finder, table rules, execute SQL
+
+### Data & knowledge layer
+- `rag/vector_store.py`: vector store cho examples
+- `rag/semantic_layer.py`: semantic mapping + context
+- `rag/schema_manager.py`: schema metadata
+
+### Frontend
+- `frontend/` (Vue 3 + Vite)
+- Build output (`frontend/dist`) sẽ được backend mount tại `/static`
+
+---
+
+## Cài đặt nhanh
+
+### 1) Chuẩn bị môi trường
 
 ```bash
-# Create virtual environment
-python -m venv venv
-venv\Scripts\activate  # Windows
+python -m venv .venv
+source .venv/bin/activate   # Linux/Mac
+# .venv\Scripts\activate    # Windows
 
-# Install dependencies
 pip install -r requirements.txt
-
-# Configure environment
-copy .env.example .env
-# Edit .env with your API keys
 ```
 
-## ▶️ Run
+### 2) Cấu hình biến môi trường
+
+```bash
+cp .env.example .env
+```
+
+Sau đó cập nhật các biến quan trọng trong `.env`:
+- `LLM_PROVIDER` (`openai` | `gemini` | `ollama`)
+- API key tương ứng (`OPENAI_API_KEY`, `GOOGLE_API_KEY`, ...)
+- `DB_TYPE` + thông tin kết nối DB
+- `API_HOST`, `API_PORT`
+
+### 3) (Tuỳ chọn) chạy frontend dev
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+### 4) Chạy backend
 
 ```bash
 python main.py
 ```
 
-Open http://localhost:8000 in your browser.
+Mặc định server chạy tại: `http://localhost:8000`
 
-## 💡 Usage Examples
+---
 
-| Question | Generated SQL |
-|----------|---------------|
-| "Show all customers from Hanoi" | `SELECT * FROM customers WHERE city = 'Hanoi'` |
-| "Total revenue by month" | `SELECT strftime('%Y-%m', order_date) as month, SUM(total_amount) as revenue FROM orders GROUP BY month` |
-| "Top 5 selling products" | `SELECT p.name, SUM(oi.quantity) as sold FROM products p JOIN order_items oi ON p.id = oi.product_id GROUP BY p.id ORDER BY sold DESC LIMIT 5` |
+## Chạy ở chế độ fullstack (serve UI từ FastAPI)
 
-## 🔧 Configuration
+```bash
+cd frontend
+npm install
+npm run build
+cd ..
+python main.py
+```
 
-Edit `.env` to configure:
+Khi có `frontend/dist`, FastAPI sẽ tự serve UI tại `/static/index.html` và route `/` sẽ redirect vào giao diện web.
 
-- **LLM Provider**: OpenAI GPT-4, Google Gemini, or Ollama
-- **Database**: SQLite (default), PostgreSQL, or MySQL
+---
 
-## 📚 Inspired By
+## API chính
 
-- [Uber FINCH](https://www.uber.com/blog/finch/) - Conversational AI for finance teams
-- [Uber QueryGPT](https://www.uber.com/blog/query-gpt/) - RAG-powered text-to-SQL
+### Health
+- `GET /health`
+- `GET /api/health`
 
-## 📄 License
+### Query
+- `POST /api/query`
+- `POST /api/query/sql-only`
+- `POST /api/query/with-context`
+- `POST /api/query/execute`
+- `WS /api/query/stream`
+
+### Agent management
+- `GET /api/agents`
+- `POST /api/agents`
+- `GET /api/agents/{agent_id}`
+- `PUT /api/agents/{agent_id}`
+- `DELETE /api/agents/{agent_id}`
+- `POST /api/agents/{agent_id}/test`
+
+Chi tiết payload/response: xem `docs/API.md`.
+
+---
+
+## Cấu trúc thư mục (rút gọn)
+
+```text
+AIQuery/
+├── main.py
+├── config.py
+├── requirements.txt
+├── agents/
+├── api/
+│   └── routes/
+├── database/
+│   └── sources/
+├── rag/
+├── models/
+├── services/
+├── frontend/
+├── docs/
+└── tests/
+```
+
+---
+
+## Tài liệu thêm
+
+- `docs/ARCHITECTURE.md`: kiến trúc tổng thể
+- `docs/API.md`: API reference
+- `docs/DEPLOYMENT.md`: hướng dẫn triển khai
+- `docs/SQL_OPTIMIZATION_GUIDE.md`: tối ưu SQL
+
+---
+
+## Ghi chú
+
+- Dự án có sẵn script test trong thư mục `tests/`.
+- Agent repository có thể dùng PostgreSQL/MySQL tuỳ cấu hình trong môi trường.
+
+## License
 
 MIT
